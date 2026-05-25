@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Local app data, secrets, reports, and runtime logs
+app-data/
+NexusAPI数据/
+
+# Build outputs
+dist/
+target/
+src-tauri/target/
+src-tauri/gen/
+release/
+*.zip
+*.dmg
+*.msi
+*.app.tar.gz
+
+# Local environment and developer overrides
+.env
+.env.*
+!.env.example
+dev.config.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*

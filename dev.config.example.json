@@ -1,0 +1,6 @@
+{
+  "vitePort": 5179,
+  "apiPort": 5180,
+  "portMode": "auto",
+  "protectedPorts": [17891]
+}

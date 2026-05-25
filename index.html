@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NexusAPI Evaluator</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">N</span>
+          <div>
+            <strong>NexusAPI</strong>
+            <small>模型渠道评测工具</small>
+          </div>
+        </div>
+        <div class="nav-group">
+          <span>推荐流程</span>
+          <button class="nav-button active" data-page="dashboard">总览</button>
+          <button class="nav-button" data-page="profiles">1. API 配置</button>
+          <button class="nav-button" data-page="standard-eval">2. 标准评测</button>
+          <button class="nav-button" data-page="reports">3. 报告中心</button>
+          <button class="nav-button" data-page="handoff">4. 测试交付</button>
+        </div>
+        <div class="nav-group">
+          <span>高级测试</span>
+          <button class="nav-button" data-page="quick-test">快速测试</button>
+          <button class="nav-button" data-page="stability-test">稳定性测试</button>
+          <button class="nav-button" data-page="scenario-test">场景测试</button>
+        </div>
+        <div class="nav-group">
+          <span>帮助</span>
+          <button class="nav-button" data-page="manual">使用手册</button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div id="edition-banner" class="edition-banner hidden"></div>
+
+        <div id="demo-mode-banner" class="demo-banner hidden">
+          <div>
+            <strong>正在查看演示数据</strong>
+            <span>这些数据只用于熟悉界面，不会发起真实请求，也不会写入本机配置。</span>
+          </div>
+          <button id="exit-demo-mode" class="secondary" type="button">退出演示模式</button>
+        </div>
+
+        <div id="page-help" class="page-help">
+          <button id="toggle-page-help" class="secondary help-toggle" type="button">这个页面怎么用？</button>
+          <div id="page-help-content" class="page-help-content hidden"></div>
+        </div>
+
+        <section class="page active" id="dashboard">
+          <div class="hero dashboard-hero">
+            <div>
+              <p class="eyebrow">本地模型与渠道评测</p>
+              <h1>按推荐流程测 API，最后交付一份能看懂的结论。</h1>
+              <p>
+                普通操作员优先使用“标准评测”。它会自动跑通连通、稳定性和少量场景测试。
+                高级测试只在需要单独复测时使用。所有数据只保存在本机 <code>NexusAPI数据</code>。
+              </p>
+              <div class="hero-actions">
+                <button class="primary" type="button" data-go-page="profiles">开始配置 API</button>
+                <button class="secondary" type="button" data-go-page="standard-eval">去标准评测</button>
+                <button class="secondary" type="button" data-go-page="manual">查看操作手册</button>
+                <button id="load-demo-data" class="secondary" type="button">查看演示数据</button>
+              </div>
+            </div>
+            <aside class="hero-next-card">
+              <span>推荐用法</span>
+              <strong>不懂怎么测，就只走这 4 步</strong>
+              <ol>
+                <li>配置 API</li>
+                <li>运行标准评测</li>
+                <li>查看报告中心</li>
+                <li>复制交付模板</li>
+              </ol>
+            </aside>
+          </div>
+          <div class="metric-grid">
+            <article class="metric-card">
+              <span>API 配置</span>
+              <strong id="profile-count">0</strong>
+              <small>主 API / 被测 API</small>
+            </article>
+            <article class="metric-card">
+              <span>最近请求</span>
+              <strong id="request-count">0</strong>
+              <small>本地请求记录</small>
+            </article>
+            <article class="metric-card">
+              <span>测试报告</span>
+              <strong id="test-run-count">0</strong>
+              <small>稳定性测试记录</small>
+            </article>
+          </div>
+
+          <form id="project-info-form" class="panel form-grid project-info-form">
+            <div class="wide">
+              <p class="eyebrow">本次测试信息</p>
+              <h3>先把项目、批次和测试人写清楚</h3>
+              <p class="section-desc">这些信息会自动带入交付模板，方便负责人知道这次测的是谁、哪一批、为什么测。</p>
+            </div>
+            <label>
+              项目 / 客户
+              <input name="projectName" placeholder="例如 NexusAPI 渠道复测" />
+            </label>
+            <label>
+              测试批次
+              <input name="batchName" placeholder="例如 2026-05-24 第一批" />
+            </label>
+            <label>
+              测试人员
+              <input name="testerName" placeholder="例如 外包测试 A / 杨磊" />
+            </label>
+            <label>
+              测试目的
+              <input name="testPurpose" placeholder="例如 初筛可用渠道，找出稳定候选" />
+            </label>
+            <button class="secondary wide" type="submit">保存本次测试信息</button>
+          </form>
+
+          <div class="panel workflow-panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow">推荐操作路径</p>
+                <h3>新手按这个顺序执行</h3>
+              </div>
+              <button class="secondary" type="button" data-go-page="manual">查看完整手册</button>
+            </div>
+            <div id="next-action" class="next-action">
+              正在判断当前下一步...
+            </div>
+            <div class="workflow-grid">
+              <article class="workflow-step" data-step="profiles">
+                <span>1</span>
+                <strong>配置 API</strong>
+                <small>填写 URL、Key、模型名和协议。</small>
+                <button class="secondary" type="button" data-go-page="profiles">去配置</button>
+              </article>
+            <article class="workflow-step" data-step="quick">
+              <span>2</span>
+                <strong>标准评测</strong>
+                <small>一键跑快速测试、3 轮稳定性和少量场景。</small>
+                <button class="secondary" type="button" data-go-page="standard-eval">去评测</button>
+              </article>
+              <article class="workflow-step" data-step="reports">
+                <span>3</span>
+                <strong>查看报告</strong>
+                <small>先看极简结论，再看失败原因和报告路径。</small>
+                <button class="secondary" type="button" data-go-page="reports">看记录</button>
+              </article>
+              <article class="workflow-step" data-step="handoff">
+                <span>4</span>
+                <strong>交付结论</strong>
+                <small>复制交付模板，把结果、异常和附件一次说清楚。</small>
+                <button class="secondary" type="button" data-go-page="handoff">去交付</button>
+              </article>
+            </div>
+            <div class="advanced-note">
+              <strong>高级测试什么时候用？</strong>
+              <span>标准评测不够时，再单独使用快速测试、稳定性测试或场景测试做复测。普通操作员默认不需要进入高级测试。</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="standard-eval">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">一键标准流程</p>
+              <h2>标准评测</h2>
+              <p class="section-desc">推荐优先使用这一页。它是一键流程，会自动执行快速测试、稳定性测试和少量复杂场景测试。单独的稳定性/场景测试属于高级复测。</p>
+            </div>
+          </div>
+
+          <div class="guide-grid compact-grid">
+            <article class="guide-card">
+              <span>第 1 步</span>
+              <strong>快速测试</strong>
+              <p>先确认 URL、Key、模型名和协议能正常请求。</p>
+            </article>
+            <article class="guide-card">
+              <span>第 2 步</span>
+              <strong>3 轮稳定性</strong>
+              <p>用低成本方式观察是否有超时、空响应或上游错误。</p>
+            </article>
+            <article class="guide-card">
+              <span>第 3 步</span>
+              <strong>少量复杂场景</strong>
+              <p>只跑 2 个轻量场景，快速判断是否值得进入深度复测。</p>
+            </article>
+          </div>
+
+          <form id="standard-eval-form" class="panel form-grid">
+            <label>
+              被测 API
+              <select name="profileId" id="standard-profile-select"></select>
+            </label>
+            <label>
+              稳定性轮数
+              <select name="rounds">
+                <option value="3" selected>3 轮：标准快速评测</option>
+                <option value="10">10 轮：更稳妥但更耗额度</option>
+              </select>
+            </label>
+            <label class="wide">
+              快速测试文案场景
+              <select id="standard-prompt-preset"></select>
+              <small id="standard-prompt-hint" class="field-hint">标准评测会先用这段文案做快速连通验证，建议保持低成本。</small>
+            </label>
+            <label class="wide">
+              当前测试文案（选择“自定义”后可编辑）
+              <textarea name="prompt"></textarea>
+              <small class="field-hint">默认由上方场景自动生成，普通用户不需要自己写。</small>
+            </label>
+            <label class="wide checkbox-option">
+              <input name="useAiReportAnalysis" type="checkbox" value="1" />
+              <span>
+                使用 AI 分析报告结果
+                <small>会额外调用当前被测 API/模型生成分析结论，额外消耗 token。不勾选时只使用本地规则判断。</small>
+              </span>
+            </label>
+            <button id="standard-eval-submit" class="primary wide" type="submit">开始标准评测</button>
+          </form>
+
+          <div class="panel">
+            <h3>标准评测进度</h3>
+            <div id="standard-eval-progress" class="standard-flow">
+              <article class="flow-step" data-standard-step="quick">
+                <span>1</span>
+                <strong>快速测试</strong>
+                <small>等待开始。</small>
+              </article>
+              <article class="flow-step" data-standard-step="stability">
+                <span>2</span>
+                <strong>稳定性测试</strong>
+                <small>等待开始。</small>
+              </article>
+              <article class="flow-step" data-standard-step="scenario">
+                <span>3</span>
+                <strong>复杂场景</strong>
+                <small>等待开始。</small>
+              </article>
+            </div>
+            <div id="standard-task-progress" class="progress-panel hidden">
+              <div class="progress-bar"><span></span></div>
+              <p class="muted">等待任务开始。</p>
+              <button id="cancel-standard-task" class="secondary" type="button">取消当前任务</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="section-header compact">
+              <h3>标准评测结果</h3>
+              <button class="secondary" type="button" data-go-page="reports">去报告中心</button>
+            </div>
+            <div id="standard-plain-result" class="plain-result-card">
+              <span>人话结论</span>
+              <strong>等待评测</strong>
+              <p>完成标准评测后，这里会先给出能否继续使用、主要原因和下一步建议。</p>
+            </div>
+            <pre id="standard-eval-result" class="result-box report-box">等待评测。</pre>
+            <div id="standard-next-actions" class="next-step-panel hidden"></div>
+          </div>
+        </section>
+
+        <section class="page" id="profiles">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">API 配置管理</p>
+              <h2>API 配置</h2>
+              <p class="section-desc">先把要测试的 API 填进来。配置成功后，下一步一定先跑快速测试。</p>
+            </div>
+            <div class="action-row">
+              <button id="export-profiles" class="secondary" type="button">导出配置</button>
+              <button id="import-profiles-button" class="secondary" type="button">导入配置</button>
+              <button id="reload-profiles" class="secondary">刷新</button>
+              <input id="import-profiles-file" type="file" accept="application/json,.json" hidden />
+            </div>
+          </div>
+
+          <div class="guide-grid compact-grid">
+            <article class="guide-card">
+              <span>Base URL</span>
+              <strong>填到域名或网关地址</strong>
+              <p>例如 <code>https://api.example.com</code>。不要把完整业务路径乱填到这里。</p>
+            </article>
+            <article class="guide-card">
+              <span>协议</span>
+              <strong>大多数中转站选 OpenAI Compatible</strong>
+              <p>Claude 原生接口才选 Claude Messages。选错协议常见表现是内容块缺失或空响应。</p>
+            </article>
+            <article class="guide-card">
+              <span>API Key</span>
+              <strong>只保存在本机安全存储</strong>
+              <p>导出的配置、报告和请求日志都不会带出真实 Key。</p>
+            </article>
+          </div>
+
+          <form id="profile-form" class="panel form-grid">
+            <div class="wide form-section-title">
+              <p class="eyebrow">普通用户只填这里</p>
+              <h3>必填信息</h3>
+              <p class="section-desc">如果你只是拿到一个 API 地址和 Key 来测试，填完下面几项后直接点“保存并测试配置”。</p>
+            </div>
+            <label class="wide">
+              配置模板
+              <select id="profile-template">
+                <option value="">不使用模板，手动填写</option>
+                <option value="nexus_openai_compatible">AI 中转站 / OpenAI 兼容</option>
+                <option value="claude_native">Claude 原生 Messages</option>
+                <option value="openai_official">OpenAI 官方 / Chat Completions</option>
+                <option value="deepseek_openai_compatible">DeepSeek / OpenAI 兼容</option>
+              </select>
+              <small class="field-hint">不懂协议时，先选“AI 中转站 / OpenAI 兼容”。模板只辅助填写，保存前仍可修改。</small>
+            </label>
+            <label>
+              名称
+              <input name="name" placeholder="例如 CC-Kiro-CH2 Claude" required />
+              <small class="field-hint">写成人能看懂的名字，报告里会显示。</small>
+            </label>
+            <label class="wide">
+              Base URL
+              <input name="baseUrl" placeholder="https://api.example.com" required />
+              <small class="field-hint">
+                正确示例：<code>https://api.example.com</code>。不要填：<code>https://api.example.com/v1/chat/completions</code>。
+              </small>
+            </label>
+            <label>
+              默认模型
+              <input name="defaultModel" placeholder="claude-sonnet-4-5 / gpt-4.1" required />
+              <small class="field-hint">复制平台后台里的模型名，不要自己猜。</small>
+            </label>
+            <label class="wide">
+              API Key
+              <input name="apiKey" type="password" placeholder="粘贴平台提供的 API Key" required />
+              <small class="field-hint">Key 只保存在本机，不会出现在报告、日志或导出配置里。</small>
+            </label>
+
+            <details class="wide advanced-settings">
+              <summary>高级设置，一般不用改</summary>
+              <div class="form-grid advanced-settings-body">
+                <label>
+                  角色
+                  <select name="role">
+                    <option value="target">被测 API</option>
+                    <option value="judge">主 API / 评分 API</option>
+                  </select>
+                  <small class="field-hint">当前主要使用“被测 API”。主 API 预留给后续 AI 评分。</small>
+                </label>
+                <label>
+                  供应商
+                  <input name="provider" placeholder="例如 NexusAPI / OpenAI / Anthropic" required />
+                </label>
+                <label>
+                  协议
+                  <select name="protocol">
+                    <option value="openai_compatible">OpenAI Compatible</option>
+                    <option value="openai_chat">OpenAI Chat Completions</option>
+                    <option value="claude_messages">Claude Messages</option>
+                  </select>
+                  <small class="field-hint">不确定时先选 OpenAI Compatible。</small>
+                </label>
+                <label>
+                  渠道标识
+                  <input name="channelCode" placeholder="可选，例如 CC-Kiro-CH2" />
+                </label>
+                <label>
+                  最大输出
+                  <input name="maxTokens" type="number" value="512" min="1" />
+                </label>
+                <label>
+                  超时毫秒
+                  <input name="timeoutMs" type="number" value="60000" min="1000" />
+                  <small class="field-hint">复杂任务建议 60000-120000，太短容易误判超时。</small>
+                </label>
+                <label class="wide">
+                  备注
+                  <textarea name="notes" placeholder="价格、倍率、来源、测试目的"></textarea>
+                </label>
+              </div>
+            </details>
+            <div id="profile-check-result" class="wide check-panel muted">填写配置后，这里会提示明显风险。</div>
+            <div class="wide action-row split-actions">
+              <button id="save-and-test-profile" class="primary" type="button">保存并测试配置</button>
+              <button class="secondary quiet-action" type="submit">仅保存，不测试</button>
+            </div>
+          </form>
+
+          <div id="missing-key-guide" class="panel missing-key-guide hidden"></div>
+
+          <div class="panel">
+            <h3>已配置 API</h3>
+            <div id="profile-list" class="table"></div>
+          </div>
+        </section>
+
+        <section class="page" id="quick-test">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">快速连通验证</p>
+              <h2>快速连通测试</h2>
+              <p class="section-desc">成本最低的一步。只确认 URL、Key、模型名和协议是否能正常请求。</p>
+            </div>
+          </div>
+
+          <div class="guide-grid compact-grid">
+            <article class="guide-card">
+              <span>什么时候用</span>
+              <strong>每次新增或修改 API 后先跑它</strong>
+              <p>快速测试失败时，不要继续跑稳定性或场景测试。</p>
+            </article>
+            <article class="guide-card">
+              <span>怎么判断</span>
+              <strong>看是否成功、请求状态和错误类型</strong>
+              <p>如果失败，优先检查协议、Key、模型名和 Base URL。</p>
+            </article>
+          </div>
+
+          <form id="quick-test-form" class="panel">
+            <label>
+              被测 API
+              <select name="profileId" id="quick-profile-select"></select>
+            </label>
+            <label>
+              测试文案场景
+              <select id="quick-prompt-preset"></select>
+              <small id="quick-prompt-hint" class="field-hint">新增或修改 API 后，优先选择低成本连通测试；需要检查格式时再选 JSON。</small>
+            </label>
+            <label>
+              当前测试文案（选择“自定义”后可编辑）
+              <textarea name="prompt"></textarea>
+              <small class="field-hint">默认由上方场景自动生成，普通用户不需要自己写。</small>
+            </label>
+            <button class="primary" type="submit">开始测试</button>
+          </form>
+
+          <div class="panel">
+            <h3>测试结果</h3>
+            <pre id="quick-test-result" class="result-box">等待测试。</pre>
+            <div id="quick-failure-actions" class="next-step-panel hidden"></div>
+          </div>
+        </section>
+
+        <section class="page" id="stability-test">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">稳定性评测</p>
+              <h2>稳定性测试与报告</h2>
+              <p class="section-desc">用于判断一个渠道是不是稳定。先小轮数筛查，再用 10 或 30 轮复测。</p>
+            </div>
+          </div>
+
+          <div class="guide-grid compact-grid">
+            <article class="guide-card">
+              <span>3 轮</span>
+              <strong>冒烟测试</strong>
+              <p>刚换 URL、Key、协议或模型名时使用，快速排除明显错误。</p>
+            </article>
+            <article class="guide-card">
+              <span>10 轮</span>
+              <strong>基础稳定性</strong>
+              <p>日常对比推荐使用，能看到成功率、平均耗时和慢请求。</p>
+            </article>
+            <article class="guide-card">
+              <span>30 轮</span>
+              <strong>候选复测</strong>
+              <p>更耗 token，适合准备推荐某个渠道前做确认。</p>
+            </article>
+          </div>
+
+          <form id="stability-test-form" class="panel form-grid">
+            <label class="wide">
+              测试模板
+              <select id="stability-template">
+                <option value="smoke">快速筛查：3 轮，并发 1</option>
+                <option value="basic" selected>基础稳定性：10 轮，并发 1</option>
+                <option value="candidate">候选渠道复测：30 轮，并发 1</option>
+                <option value="concurrency">轻并发观察：10 轮，并发 2</option>
+              </select>
+            </label>
+            <label>
+              被测 API
+              <select name="profileId" id="stability-profile-select"></select>
+            </label>
+            <label>
+              测试轮数
+              <select name="rounds">
+                <option value="3">3 轮：冒烟验证</option>
+                <option value="10" selected>10 轮：基础稳定性</option>
+                <option value="30">30 轮：较完整稳定性</option>
+              </select>
+            </label>
+            <label>
+              并发数
+              <select name="concurrency">
+                <option value="1" selected>1：顺序测试，最稳妥</option>
+                <option value="2">2：轻并发</option>
+                <option value="3">3：观察网关波动</option>
+              </select>
+            </label>
+            <label class="wide">
+              测试文案场景
+              <select id="stability-prompt-preset"></select>
+              <small id="stability-prompt-hint" class="field-hint">选择一个代表性场景，工具会自动填入测试 Prompt。也可以选择自定义后自己写。</small>
+            </label>
+            <label class="wide">
+              当前测试文案（选择“自定义”后可编辑）
+              <textarea name="prompt"></textarea>
+              <small class="field-hint">默认由上方场景自动生成，普通用户不需要自己写。</small>
+            </label>
+            <label class="wide checkbox-option">
+              <input name="useAiReportAnalysis" type="checkbox" value="1" />
+              <span>
+                使用 AI 分析报告结果
+                <small>会额外调用当前被测 API/模型生成分析结论，额外消耗 token。不勾选时只使用本地规则判断。</small>
+              </span>
+            </label>
+            <button id="stability-submit" class="primary wide" type="submit">开始稳定性测试</button>
+          </form>
+
+          <div class="panel">
+            <h3>执行前预估</h3>
+            <div id="stability-estimate" class="estimate-box">选择参数后会显示大概会消耗多少额度。</div>
+            <div id="stability-progress" class="progress-panel hidden">
+              <div class="progress-bar"><span></span></div>
+              <p class="muted">等待任务开始。</p>
+              <button id="cancel-stability-task" class="secondary" type="button">取消当前任务</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>汇总结论</h3>
+            <div id="stability-summary" class="summary-grid">
+              <p class="muted">等待测试。</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="section-header compact">
+              <h3>Markdown 报告</h3>
+              <button id="copy-stability-report" class="secondary" type="button">复制报告</button>
+            </div>
+            <pre id="stability-report" class="result-box report-box">测试完成后会在这里生成详细报告。</pre>
+          </div>
+
+          <div class="panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow">批量并发评测</p>
+                <h3>批量并发测试</h3>
+                <p class="section-desc">用于多个模型或渠道横向对比。建议先选 2-3 个 API 小轮数筛查。</p>
+              </div>
+            </div>
+            <form id="batch-test-form" class="form-grid">
+              <label class="wide">
+                测试模板
+                <select id="batch-template">
+                  <option value="batch-smoke">批量快速筛查：每个 API 3 轮</option>
+                  <option value="batch-basic" selected>批量基础对比：每个 API 10 轮</option>
+                  <option value="batch-candidate">批量候选复测：每个 API 30 轮</option>
+                </select>
+              </label>
+              <label class="wide">
+                选择多个被测 API
+                <select name="profileIds" id="batch-profile-select" multiple size="6"></select>
+              </label>
+              <label>
+                每个 API 测试轮数
+                <select name="rounds">
+                  <option value="3">3 轮：快速筛查</option>
+                  <option value="10" selected>10 轮：基础对比</option>
+                  <option value="30">30 轮：较完整对比</option>
+                </select>
+              </label>
+              <label>
+                同时测试 API 数
+                <select name="maxParallelProfiles">
+                  <option value="1">1：最稳妥</option>
+                  <option value="2" selected>2：推荐</option>
+                  <option value="3">3：较激进</option>
+                </select>
+              </label>
+              <label>
+                单 API 请求并发
+                <select name="concurrency">
+                  <option value="1" selected>1：顺序请求</option>
+                  <option value="2">2：轻并发</option>
+                </select>
+              </label>
+              <label class="wide">
+                测试文案场景
+                <select id="batch-prompt-preset"></select>
+                <small id="batch-prompt-hint" class="field-hint">批量测试建议使用同一个代表性 Prompt，这样多个 API 的结果更容易横向对比。</small>
+              </label>
+              <label class="wide">
+                当前测试文案（选择“自定义”后可编辑）
+                <textarea name="prompt"></textarea>
+                <small class="field-hint">默认由上方场景自动生成，普通用户不需要自己写。</small>
+              </label>
+              <label class="wide checkbox-option">
+                <input name="useAiReportAnalysis" type="checkbox" value="1" />
+                <span>
+                  使用 AI 分析报告结果
+                  <small>会额外调用本批次表现最好的 API/模型生成分析结论，额外消耗 token。不勾选时只使用本地规则判断。</small>
+                </span>
+              </label>
+              <button id="batch-submit" class="primary wide" type="submit">开始批量测试</button>
+            </form>
+            <div id="batch-estimate" class="estimate-box">选择参数后会显示大概会消耗多少额度。</div>
+            <div id="batch-progress" class="progress-panel hidden">
+              <div class="progress-bar"><span></span></div>
+              <p class="muted">等待任务开始。</p>
+              <button id="cancel-batch-task" class="secondary" type="button">取消当前任务</button>
+            </div>
+            <pre id="batch-test-result" class="result-box report-box">适合同时对比多个模型或渠道。建议先用 3 轮快速筛查，再跑 10 轮正式对比。</pre>
+          </div>
+        </section>
+
+        <section class="page" id="scenario-test">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">复杂场景评测</p>
+              <h2>复杂场景测试</h2>
+              <p class="section-desc">用于观察模型在编程、长上下文、JSON、推理、写作等真实任务里的表现。</p>
+            </div>
+          </div>
+
+          <div class="guide-grid compact-grid">
+            <article class="guide-card">
+              <span>成本提醒</span>
+              <strong>复杂场景最耗额度</strong>
+              <p>第一次不要全量多模型多重复，先少量 API、少量场景试跑。</p>
+            </article>
+            <article class="guide-card">
+              <span>质量分说明</span>
+              <strong>当前是规则化快速筛查</strong>
+              <p>质量分可用来粗筛，正式结论还需要人工抽查输出内容。</p>
+            </article>
+            <article class="guide-card">
+              <span>适合场景</span>
+              <strong>最终候选模型复核</strong>
+              <p>当稳定性已经过关，再用复杂场景确认真实任务能力。</p>
+            </article>
+          </div>
+
+          <form id="scenario-test-form" class="panel form-grid">
+            <label class="wide">
+              测试模板
+              <select id="scenario-template">
+                <option value="scenario-small">低成本初筛包：连通、速度、结构化</option>
+                <option value="scenario-coding">编程能力包：代码排错、复杂决策</option>
+                <option value="scenario-long-context">长上下文包：资料归纳、业务说明</option>
+                <option value="scenario-safety">内容安全合规包：低风险风控探测</option>
+                <option value="scenario-basic" selected>基础能力全量包：不含内容安全场景</option>
+                <option value="scenario-deep">候选深度复测包：能力场景重复 2 次</option>
+              </select>
+              <small id="scenario-template-hint" class="field-hint">基础能力全量包适合稳定性已经通过后的能力评估，不会默认包含内容安全探测。</small>
+            </label>
+            <label class="wide">
+              选择被测 API（可多选）
+              <select name="profileIds" id="scenario-profile-select" multiple size="6"></select>
+            </label>
+            <label class="wide">
+              选择测试场景（可多选）
+              <select name="scenarioIds" id="scenario-case-select" multiple size="8"></select>
+            </label>
+            <label>
+              每个场景重复次数
+              <select name="repeats">
+                <option value="1" selected>1 次：快速筛查</option>
+                <option value="2">2 次：观察波动</option>
+                <option value="3">3 次：更稳妥</option>
+              </select>
+            </label>
+            <label>
+              同时测试 API 数
+              <select name="maxParallelProfiles">
+                <option value="1">1：最稳妥</option>
+                <option value="2" selected>2：推荐</option>
+                <option value="3">3：较激进</option>
+              </select>
+            </label>
+            <label>
+              单 API 请求并发
+              <select name="requestConcurrency">
+                <option value="1" selected>1：顺序场景</option>
+                <option value="2">2：并发场景</option>
+              </select>
+            </label>
+            <label class="wide checkbox-option">
+              <input name="useAiReportAnalysis" type="checkbox" value="1" />
+              <span>
+                使用 AI 分析报告结果
+                <small>会额外调用本轮表现较好的 API/模型生成分析结论，额外消耗 token。不勾选时只使用本地规则判断。</small>
+              </span>
+            </label>
+            <button id="scenario-submit" class="primary wide" type="submit">开始场景测试</button>
+          </form>
+
+          <div class="panel">
+            <h3>执行前预估</h3>
+            <div id="scenario-estimate" class="estimate-box">选择参数后会显示大概会消耗多少额度。</div>
+            <div id="scenario-progress" class="progress-panel hidden">
+              <div class="progress-bar"><span></span></div>
+              <p class="muted">等待任务开始。</p>
+              <button id="cancel-scenario-task" class="secondary" type="button">取消当前任务</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="section-header compact">
+              <h3>场景测试报告</h3>
+              <button id="copy-scenario-report" class="secondary" type="button">复制报告</button>
+            </div>
+            <pre id="scenario-test-result" class="result-box report-box">等待测试。</pre>
+          </div>
+        </section>
+
+        <section class="page" id="reports">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">本地日志与报告</p>
+              <h2>报告中心</h2>
+              <p class="section-desc">先看结论卡片，再看测试记录和请求日志。给负责人汇报时优先使用交付模板。</p>
+            </div>
+            <div class="action-row">
+              <button id="export-support-bundle" class="secondary" type="button">导出问题包</button>
+              <button id="reload-requests" class="secondary">刷新</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow">外包只看这里</p>
+                <h3>极简结论</h3>
+              </div>
+              <button class="secondary" type="button" data-go-page="handoff">复制交付内容</button>
+            </div>
+            <div id="plain-conclusion" class="plain-conclusion">
+              <p class="muted">完成测试后这里会显示推荐、观察或不推荐。</p>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow">最新结论</p>
+                <h3>报告结论卡片</h3>
+              </div>
+              <button class="secondary" type="button" data-go-page="handoff">生成交付模板</button>
+            </div>
+            <div id="report-insights" class="insight-grid">
+              <p class="muted">还没有可分析的测试报告。</p>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow">横向对比</p>
+                <h3>模型 / 渠道排行榜</h3>
+              </div>
+            </div>
+            <div id="ranking-list" class="ranking-list">
+              <p class="muted">完成稳定性测试或场景测试后会生成排行榜。</p>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>最近测试报告</h3>
+            <div id="test-run-list" class="table"></div>
+          </div>
+          <div class="panel">
+            <h3>最近任务状态</h3>
+            <p class="muted">用于判断上次测试是否完成、失败、取消或因程序关闭而中断。</p>
+            <div id="task-event-list" class="table"></div>
+          </div>
+          <div class="panel">
+            <h3>最近请求记录</h3>
+            <div id="request-list" class="table"></div>
+          </div>
+        </section>
+
+        <section class="page" id="handoff">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">外包交付</p>
+              <h2>测试交付模板</h2>
+            </div>
+            <button id="copy-handoff-template" class="secondary" type="button">复制交付模板</button>
+          </div>
+
+          <div class="panel">
+            <h3>本次测试信息</h3>
+            <div id="project-info-summary" class="handoff-meta">
+              <p class="muted">还没有填写项目和批次信息。建议回到总览页补充后再交付。</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>当前交付结论</h3>
+            <div id="handoff-summary" class="insight-grid">
+              <p class="muted">还没有测试结果。请先完成快速测试、稳定性测试或场景测试。</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>交付前检查清单</h3>
+            <div class="checklist-grid">
+              <label><input type="checkbox" /> 已确认 API 配置名称、模型名、协议填写正确</label>
+              <label><input type="checkbox" /> 已完成快速测试，并确认至少 1 次成功响应</label>
+              <label><input type="checkbox" /> 已完成 3 轮或 10 轮稳定性测试</label>
+              <label><input type="checkbox" /> 如涉及复杂任务，已完成场景测试并查看质量分</label>
+              <label><input type="checkbox" /> 已查看错误诊断，不只看成功率</label>
+              <label><input type="checkbox" /> 已准备报告文件路径、异常说明和平台 Request ID</label>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="section-header compact">
+              <h3>可复制交付内容</h3>
+              <button id="refresh-handoff-template" class="secondary" type="button">刷新模板</button>
+            </div>
+            <pre id="handoff-template" class="result-box report-box">等待生成交付模板。</pre>
+          </div>
+        </section>
+
+        <section class="page" id="manual">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">中文使用说明</p>
+              <h2>使用手册</h2>
+            </div>
+            <button id="reload-manual" class="secondary">刷新手册</button>
+          </div>
+
+          <div class="panel manual-panel">
+            <div id="manual-content" class="manual-content">
+              <p class="muted">正在加载使用手册...</p>
+            </div>
+          </div>
+        </section>
+
+        <div id="key-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="key-modal-title">
+          <form id="key-modal-form" class="modal-card">
+            <div>
+              <p class="eyebrow">安全录入</p>
+              <h3 id="key-modal-title">更新 API Key</h3>
+              <p class="section-desc">Key 只保存在本机安全存储，不会写入报告、日志或导出配置。</p>
+            </div>
+            <label>
+              新 API Key
+              <input id="key-modal-input" name="apiKey" type="password" autocomplete="off" placeholder="粘贴新的 API Key" required />
+            </label>
+            <div class="action-row split-actions">
+              <button id="key-modal-cancel" class="secondary" type="button">取消</button>
+              <button class="primary" type="submit">保存 Key</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="confirm-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+          <div class="modal-card confirm-card">
+            <div>
+              <p class="eyebrow">操作确认</p>
+              <h3 id="confirm-modal-title">请确认</h3>
+            </div>
+            <div id="confirm-modal-message" class="confirm-message"></div>
+            <div class="action-row split-actions">
+              <button id="confirm-modal-cancel" class="secondary" type="button">取消</button>
+              <button id="confirm-modal-ok" class="primary" type="button">确认</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script type="module" src="/src/app.js"></script>
+  </body>
+</html>
