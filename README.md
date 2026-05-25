@@ -68,6 +68,22 @@ If a local communication channel is occupied, the launcher switches to a free on
 
 Maintainers can set `SHOW_TECHNICAL_PORT_DETAILS=1` to print detailed port diagnostics.
 
+## Desktop Packages
+
+GitHub Actions builds private no-install packages for macOS and Windows:
+
+- macOS: unzip and open `NexusAPI Evaluator.app`.
+- Windows: unzip and double-click `NexusAPI Evaluator.exe`.
+
+The packaged folder includes its own Node.js runtime and starts the local API service automatically. End users do not need to install Node.js, pnpm, Rust, or Tauri.
+
+Packaging details:
+
+```text
+docs/PACKAGING.md
+docs/PACKAGING.zh-CN.md
+```
+
 ## Basic Operator Flow
 
 1. Open the app with `pnpm dev:desktop`.

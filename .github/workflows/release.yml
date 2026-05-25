@@ -1,0 +1,122 @@
+name: Build desktop packages
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-13
+            label: macOS-x64
+            artifact: NexusAPI-Evaluator-macOS-x64
+          - os: windows-latest
+            label: Windows-x64
+            artifact: NexusAPI-Evaluator-Windows-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare bundled Node runtime
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p resources/bin
+          cp "$(which node)" resources/bin/node
+          chmod 755 resources/bin/node
+          xattr -c resources/bin/node || true
+
+      - name: Prepare bundled Node runtime
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force resources/bin | Out-Null
+          Copy-Item (Get-Command node).Source resources/bin/node.exe
+
+      - name: Verify
+        run: pnpm test
+
+      - name: Static checks
+        run: pnpm check
+
+      - name: Build frontend assets
+        run: pnpm build
+
+      - name: Build macOS desktop app
+        if: runner.os == 'macOS'
+        run: pnpm tauri:build
+        env:
+          NEXUSAPI_ENABLE_SAFETY_SCENARIOS: "0"
+
+      - name: Build Windows desktop app
+        if: runner.os == 'Windows'
+        run: cargo build --release --manifest-path src-tauri/Cargo.toml
+        env:
+          NEXUSAPI_ENABLE_SAFETY_SCENARIOS: "0"
+
+      - name: Package macOS zip
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          out="release/${{ matrix.artifact }}"
+          mkdir -p "$out"
+          cp -R "src-tauri/target/release/bundle/macos/NexusAPI Evaluator.app" "$out/NexusAPI Evaluator.app"
+          cp "server.mjs" "$out/server.mjs"
+          cp -R "server" "$out/server"
+          cp -R "docs" "$out/docs"
+          cp -R "dist" "$out/dist"
+          cp -R "resources" "$out/resources"
+          ditto -c -k --sequesterRsrc --keepParent "$out" "release/${{ matrix.artifact }}.zip"
+
+      - name: Package Windows zip
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $out = "release/${{ matrix.artifact }}"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item "src-tauri/target/release/nexusapi-evaluator.exe" "$out/NexusAPI Evaluator.exe"
+          Copy-Item "server.mjs" "$out/server.mjs"
+          Copy-Item "server" "$out/server" -Recurse
+          Copy-Item "docs" "$out/docs" -Recurse
+          Copy-Item "dist" "$out/dist" -Recurse
+          Copy-Item "resources" "$out/resources" -Recurse
+          Compress-Archive -Path "$out" -DestinationPath "release/${{ matrix.artifact }}.zip" -Force
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: release/${{ matrix.artifact }}.zip
+
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/${{ matrix.artifact }}.zip

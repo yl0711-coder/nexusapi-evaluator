@@ -10,22 +10,16 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [
-      {
-        "title": "NexusAPI Evaluator",
-        "width": 1280,
-        "height": 820,
-        "minWidth": 1080,
-        "minHeight": 720
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "app"
+    ],
     "icon": []
   }
 }

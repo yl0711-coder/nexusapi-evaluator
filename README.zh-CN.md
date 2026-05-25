@@ -65,6 +65,22 @@ pnpm dev:desktop:risk
 
 维护人员如需查看端口细节，可设置 `SHOW_TECHNICAL_PORT_DETAILS=1` 后启动。
 
+## 免安装桌面包
+
+GitHub Actions 会构建私有免安装包：
+
+- macOS：解压后打开 `NexusAPI Evaluator.app`。
+- Windows：解压后双击 `NexusAPI Evaluator.exe`。
+
+打包后的目录内置 Node.js runtime，会自动启动本地 API 服务。最终使用者不需要安装 Node.js、pnpm、Rust 或 Tauri。
+
+打包说明：
+
+```text
+docs/PACKAGING.zh-CN.md
+docs/PACKAGING.md
+```
+
 ## 基础操作流程
 
 1. 使用 `pnpm dev:desktop` 打开应用。
@@ -92,6 +108,7 @@ pnpm dev:desktop:risk
 - 代码维护手册：`docs/MAINTAINING.md`
 - 开发说明：`docs/DEVELOPMENT.zh-CN.md`
 - 真实 API 试用验收清单：`docs/ACCEPTANCE_TEST_PLAN.md`
+- 免安装包打包说明：`docs/PACKAGING.zh-CN.md`
 
 ## 内置场景类型
 

@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { MIME_TYPES, TEST_SCENARIOS } from "./server/constants.mjs";
-import { ERROR_LOG_FILE, ROOT, TASK_EVENTS_FILE } from "./server/paths.mjs";
+import { ERROR_LOG_FILE, ROOT, STATIC_ROOT, TASK_EVENTS_FILE } from "./server/paths.mjs";
 import { ensureDataDir, readRecentErrors, readRecentRequests, readRecentTasks, readRecentTestRuns } from "./server/data-store.mjs";
 import { buildUserErrorMessage, logTechnicalError } from "./server/error-log.mjs";
 import {
@@ -289,17 +289,39 @@ async function readJson(req) {
 async function serveStatic(req, res) {
   const url = new URL(req.url || "/", `http://127.0.0.1:${PORT}`);
   const requestedPath = url.pathname === "/" ? "/index.html" : url.pathname;
-  const fullPath = normalize(join(ROOT, requestedPath));
-  if (!fullPath.startsWith(ROOT)) {
+  const staticPath = normalize(join(STATIC_ROOT, requestedPath));
+  if (!staticPath.startsWith(STATIC_ROOT)) {
     res.writeHead(403);
     res.end("Forbidden");
     return;
   }
 
   try {
-    const content = await readFile(fullPath);
+    const content = await readFile(staticPath);
     res.writeHead(200, {
-      "content-type": MIME_TYPES[extname(fullPath)] || "application/octet-stream",
+      "content-type": MIME_TYPES[extname(staticPath)] || "application/octet-stream",
+    });
+    res.end(content);
+    return;
+  } catch {
+    if (!requestedPath.startsWith("/docs/")) {
+      res.writeHead(404);
+      res.end("Not found");
+      return;
+    }
+  }
+
+  const docsPath = normalize(join(ROOT, requestedPath));
+  if (!docsPath.startsWith(ROOT)) {
+    res.writeHead(403);
+    res.end("Forbidden");
+    return;
+  }
+
+  try {
+    const content = await readFile(docsPath);
+    res.writeHead(200, {
+      "content-type": MIME_TYPES[extname(docsPath)] || "application/octet-stream",
     });
     res.end(content);
   } catch {

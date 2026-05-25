@@ -1,7 +1,10 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const SOURCE_ROOT = fileURLToPath(new URL("../", import.meta.url));
+
+export const ROOT = process.env.NEXUSAPI_APP_ROOT || SOURCE_ROOT;
+export const STATIC_ROOT = process.env.NEXUSAPI_STATIC_DIR || ROOT;
 export const LEGACY_DATA_DIR = process.env.NEXUSAPI_LEGACY_DATA_DIR || join(ROOT, "app-data");
 export const DATA_DIR = process.env.NEXUSAPI_DATA_DIR || join(ROOT, "NexusAPI数据");
 export const CONFIG_DIR = join(DATA_DIR, "配置");

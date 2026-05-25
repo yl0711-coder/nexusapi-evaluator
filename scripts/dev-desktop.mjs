@@ -234,6 +234,7 @@ function cleanProxyEnv() {
   env.API_PORT = String(API_PORT);
   env.PORT = String(API_PORT);
   env.VITE_PORT = String(VITE_PORT);
+  env.NEXUSAPI_DESKTOP_DEV_URL = `http://127.0.0.1:${VITE_PORT}`;
   return env;
 }
 
