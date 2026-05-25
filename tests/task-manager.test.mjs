@@ -70,6 +70,7 @@ test("task manager cancels running tasks through the task context", async () => 
     const task = await manager.createTask("stability", { rounds: 5 });
     await manager.cancelTask(task);
     await waitFor(() => task.status === "cancelled");
+    await waitForFileMatch(taskEventsFile, /"event":"cancelled"/);
 
     assert.equal(task.cancelRequested, true);
     assert.equal(task.message, "任务已取消。");
@@ -179,4 +180,16 @@ async function waitFor(predicate) {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   throw new Error("Timed out while waiting for task state.");
+}
+
+async function waitForFileMatch(file, pattern) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < 1500) {
+    const content = await readFile(file, "utf8").catch(() => "");
+    if (pattern.test(content)) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`Timed out while waiting for ${pattern} in ${file}.`);
 }
