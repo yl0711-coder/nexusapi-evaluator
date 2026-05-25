@@ -14,6 +14,7 @@ use tauri::{Manager, Url, WebviewUrl, WebviewWindowBuilder};
 
 const DEFAULT_API_PORT: u16 = 5180;
 const PROTECTED_PORTS: [u16; 1] = [17891];
+const DEFAULT_SAFETY_SCENARIOS_FLAG: &str = "0";
 
 struct ManagedServer(Mutex<Option<Child>>);
 
@@ -77,7 +78,10 @@ fn launch_window(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
             static_root.to_string_lossy().to_string(),
         )
         .env("NEXUSAPI_DATA_DIR", data_dir.to_string_lossy().to_string())
-        .env("NEXUSAPI_ENABLE_SAFETY_SCENARIOS", "0")
+        .env(
+            "NEXUSAPI_ENABLE_SAFETY_SCENARIOS",
+            safety_scenarios_flag(),
+        )
         .env("NO_PROXY", "*")
         .env("no_proxy", "*")
         .env_remove("all_proxy")
@@ -99,6 +103,13 @@ fn launch_window(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
 
     create_main_window(app, &format!("http://127.0.0.1:{port}"))?;
     Ok(())
+}
+
+fn safety_scenarios_flag() -> &'static str {
+    match option_env!("NEXUSAPI_ENABLE_SAFETY_SCENARIOS") {
+        Some("1") => "1",
+        _ => DEFAULT_SAFETY_SCENARIOS_FLAG,
+    }
 }
 
 fn create_main_window(app: &tauri::App, url: &str) -> Result<(), Box<dyn std::error::Error>> {

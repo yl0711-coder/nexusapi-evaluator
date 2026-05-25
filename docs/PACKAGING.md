@@ -4,10 +4,14 @@ This project is distributed as private no-install desktop packages.
 
 ## Package Types
 
-- `NexusAPI-Evaluator-macOS-x64.zip`: contains `NexusAPI Evaluator.app` and bundled resources.
-- `NexusAPI-Evaluator-Windows-x64.zip`: contains `NexusAPI Evaluator.exe` and bundled resources.
+- `NexusAPI-Evaluator-macOS-x64-Standard.zip`: macOS standard edition. Content-safety scenarios are hidden.
+- `NexusAPI-Evaluator-macOS-x64-Internal-Risk.zip`: macOS internal risk-control edition. Content-safety scenarios are enabled.
+- `NexusAPI-Evaluator-Windows-x64-Standard.zip`: Windows standard edition. Content-safety scenarios are hidden.
+- `NexusAPI-Evaluator-Windows-x64-Internal-Risk.zip`: Windows internal risk-control edition. Content-safety scenarios are enabled.
 
 End users do not need to install Node.js, pnpm, Rust, or Tauri. Those tools are only required for development and CI packaging.
+
+Each zip package contains `版本说明.txt` so operators can confirm the package edition before use.
 
 ## Runtime Design
 
@@ -19,7 +23,9 @@ The desktop app starts the bundled Node.js local API service from the same unzip
 - It only terminates the child process that was started by this app.
 - User-visible reports and logs are written to `NexusAPI数据/`.
 
-The standard package hides internal content-safety scenarios by setting `NEXUSAPI_ENABLE_SAFETY_SCENARIOS=0`.
+The standard edition sets `NEXUSAPI_ENABLE_SAFETY_SCENARIOS=0` and hides internal content-safety scenarios.
+
+The internal risk-control edition sets `NEXUSAPI_ENABLE_SAFETY_SCENARIOS=1` and shows content-safety scenarios. Only trained internal operators should use this package.
 
 ## GitHub Actions
 
@@ -31,12 +37,12 @@ Manual build:
 2. Go to `Actions`.
 3. Select `Build desktop packages`.
 4. Click `Run workflow`.
-5. Download the macOS and Windows artifacts after both jobs pass.
+5. Download the four artifacts after all jobs pass.
 
 Release build:
 
 1. Create and push a tag, for example `v0.1.0`.
-2. The workflow builds both packages.
+2. The workflow builds standard and internal risk-control packages for macOS and Windows.
 3. The generated zip files are uploaded to the GitHub Release.
 
 ## Local Build
@@ -52,3 +58,9 @@ pnpm tauri:build:standard
 ```
 
 The copied Node binary is ignored by Git.
+
+For the internal risk-control edition:
+
+```bash
+pnpm tauri:build:risk
+```

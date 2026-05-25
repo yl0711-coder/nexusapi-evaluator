@@ -80,13 +80,20 @@ NexusAPI数据/
 
 ## 5. 打包产物验收
 
-普通版打包：
+CI 需要产出 4 个 zip 包：
+
+- `NexusAPI-Evaluator-macOS-x64-Standard`
+- `NexusAPI-Evaluator-macOS-x64-Internal-Risk`
+- `NexusAPI-Evaluator-Windows-x64-Standard`
+- `NexusAPI-Evaluator-Windows-x64-Internal-Risk`
+
+本地普通版打包：
 
 ```bash
 pnpm tauri:build:standard
 ```
 
-内部风控版打包：
+本地内部风控版打包：
 
 ```bash
 pnpm tauri:build:risk
@@ -100,6 +107,7 @@ pnpm tauri:build:risk
 - 重新打开后历史配置和报告仍在。
 - 普通版不显示内容安全合规包。
 - 内部风控版显示内容安全合规包。
+- 每个 zip 包内都有 `版本说明.txt`，内容与包名一致。
 
 ## 6. 不允许交付的情况
 

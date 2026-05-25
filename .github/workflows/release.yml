@@ -22,11 +22,29 @@ jobs:
       matrix:
         include:
           - os: macos-15-intel
-            label: macOS-x64
-            artifact: NexusAPI-Evaluator-macOS-x64
+            label: macOS-x64 Standard
+            artifact: NexusAPI-Evaluator-macOS-x64-Standard
+            safety_scenarios: "0"
+            edition_cn: 标准版
+            edition_en: Standard
+          - os: macos-15-intel
+            label: macOS-x64 Internal Risk
+            artifact: NexusAPI-Evaluator-macOS-x64-Internal-Risk
+            safety_scenarios: "1"
+            edition_cn: 内部风控版
+            edition_en: Internal Risk
           - os: windows-latest
-            label: Windows-x64
-            artifact: NexusAPI-Evaluator-Windows-x64
+            label: Windows-x64 Standard
+            artifact: NexusAPI-Evaluator-Windows-x64-Standard
+            safety_scenarios: "0"
+            edition_cn: 标准版
+            edition_en: Standard
+          - os: windows-latest
+            label: Windows-x64 Internal Risk
+            artifact: NexusAPI-Evaluator-Windows-x64-Internal-Risk
+            safety_scenarios: "1"
+            edition_cn: 内部风控版
+            edition_en: Internal Risk
 
     steps:
       - name: Checkout
@@ -77,13 +95,13 @@ jobs:
         if: runner.os == 'macOS'
         run: pnpm tauri:build
         env:
-          NEXUSAPI_ENABLE_SAFETY_SCENARIOS: "0"
+          NEXUSAPI_ENABLE_SAFETY_SCENARIOS: ${{ matrix.safety_scenarios }}
 
       - name: Build Windows desktop app
         if: runner.os == 'Windows'
         run: cargo build --release --manifest-path src-tauri/Cargo.toml
         env:
-          NEXUSAPI_ENABLE_SAFETY_SCENARIOS: "0"
+          NEXUSAPI_ENABLE_SAFETY_SCENARIOS: ${{ matrix.safety_scenarios }}
 
       - name: Package macOS zip
         if: runner.os == 'macOS'
@@ -97,6 +115,13 @@ jobs:
           cp -R "docs" "$out/docs"
           cp -R "dist" "$out/dist"
           cp -R "resources" "$out/resources"
+          cat > "$out/版本说明.txt" <<EOF
+          NexusAPI Evaluator ${{ matrix.edition_cn }}
+          Edition: ${{ matrix.edition_en }}
+
+          标准版：隐藏内容安全合规测试，适合普通测试人员使用。
+          内部风控版：显示内容安全合规测试，只适合负责人或受训测试人员使用。
+          EOF
           ditto -c -k --sequesterRsrc --keepParent "$out" "release/${{ matrix.artifact }}.zip"
 
       - name: Package Windows zip
@@ -111,6 +136,13 @@ jobs:
           Copy-Item "docs" "$out/docs" -Recurse
           Copy-Item "dist" "$out/dist" -Recurse
           Copy-Item "resources" "$out/resources" -Recurse
+          @"
+          NexusAPI Evaluator ${{ matrix.edition_cn }}
+          Edition: ${{ matrix.edition_en }}
+
+          标准版：隐藏内容安全合规测试，适合普通测试人员使用。
+          内部风控版：显示内容安全合规测试，只适合负责人或受训测试人员使用。
+          "@ | Set-Content -Path "$out/版本说明.txt" -Encoding UTF8
           Compress-Archive -Path "$out" -DestinationPath "release/${{ matrix.artifact }}.zip" -Force
 
       - name: Upload package artifact
