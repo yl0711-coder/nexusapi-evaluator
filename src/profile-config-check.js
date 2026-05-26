@@ -12,7 +12,7 @@ export function renderProfileConfigCheck({ form, container, validation = null })
 
   if (!result.issues.length) {
     container.className = "wide check-panel pass-card";
-    container.innerHTML = "<strong>配置初检通过。</strong><span>保存后请先跑一次快速测试。</span>";
+    container.innerHTML = "<strong>配置初检通过。</strong><span>保存并测试通过后，再进入标准评测生成可交付结论。</span>";
     return;
   }
 

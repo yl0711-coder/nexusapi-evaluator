@@ -59,7 +59,7 @@ export function renderMissingKeyPanel({ profiles, container, onFillKey }) {
         <h3>导入的配置里有 ${missing.length} 条还不能测试</h3>
       </div>
     </div>
-    <p class="section-desc">为了安全，导出的配置不会带真实 Key。请逐条补 Key，补完后先跑快速测试。</p>
+    <p class="section-desc">为了安全，导出的配置不会带真实 Key。请逐条补 Key，补完后点击“保存并测试配置”，通过后再进入标准评测。</p>
     <div class="inline-list">
       ${missing
         .map(

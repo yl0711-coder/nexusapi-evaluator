@@ -42,7 +42,7 @@ test("operator guidance recommends next step after standard evaluation", () => {
     stability: { successRate: 1, p95TotalMs: 1200 },
     scenario: { results: [{ avgQualityScore: 80 }] },
   });
-  assert.match(passAdvice.join("\n"), /10 轮基础稳定性/);
+  assert.match(passAdvice.join("\n"), /复制交付模板/);
 
   const failAdvice = buildStandardNextStepAdvice({
     quick: { success: false },
@@ -82,6 +82,18 @@ test("operator guidance builds plain-language summary and action buttons", () =>
   });
   assert.equal(summary.level, "pass");
   assert.match(summary.title, /初筛通过/);
+  assert.match(summary.detail, /复制交付模板/);
+
+  const passActions = buildStandardActionPlan({
+    quick: { success: true },
+    stability: { successRate: 1, p95TotalMs: 1000 },
+    scenario: { results: [{ avgQualityScore: 85 }] },
+  });
+  assert.deepEqual(
+    passActions.map((action) => action.action),
+    ["handoff", "stability-basic", "scenario-basic"],
+  );
+  assert.equal(passActions[0].kind, "primary");
 
   const actions = buildStandardActionPlan({
     quick: { success: false },

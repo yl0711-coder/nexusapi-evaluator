@@ -19,7 +19,6 @@ export function createStandardEvalController({
   estimateCost,
   confirmRun,
   refreshResults,
-  setLatestReport,
   showPage,
   quickProfileSelect,
   stabilityProfileSelect,
@@ -63,9 +62,9 @@ export function createStandardEvalController({
         progressElement,
         taskProgressElement,
       });
-      setLatestReport(result.scenario?.reportMarkdown || result.stability.reportMarkdown || "");
+      const standardResultText = formatStandardResult(result);
       renderStandardPlainResult({ ...result, plainResultElement });
-      resultElement.textContent = formatStandardResult(result);
+      resultElement.textContent = standardResultText;
       renderStandardNextActions({
         ...result,
         profileId: payload.profileId,
@@ -163,7 +162,12 @@ async function runStandardEvaluation({ payload, scenarioIds, state, progressElem
       profileId: payload.profileId,
       rounds: payload.rounds,
       concurrency: "1",
-      prompt: "请用两句话说明你可以正常工作，并返回当前测试编号。",
+      prompt: [
+        "请用中文完成一次稳定性测试回答：",
+        "1. 用一句话说明你已正常响应。",
+        "2. 用两条要点说明评估 AI API 稳定性应该关注哪些指标。",
+        "3. 最后一行固定输出：测试完成。",
+      ].join("\n"),
       useAiReportAnalysis: payload.useAiReportAnalysis || "",
     },
     taskProgressElement,

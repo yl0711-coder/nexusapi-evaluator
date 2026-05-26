@@ -20,7 +20,9 @@ export function createQuickTestController({
         body: JSON.stringify(payload),
       });
       resultElement.textContent = result.success ? formatResult(result) : `${formatResult(result)}\n\n${buildErrorAdviceText(result)}`;
-      if (!result.success) {
+      if (result.success) {
+        quickFailurePanel.renderSuccess(payload.profileId);
+      } else {
         quickFailurePanel.render(result, payload.profileId);
       }
       await afterRequest();

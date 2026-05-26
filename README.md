@@ -88,21 +88,24 @@ docs/PACKAGING.zh-CN.md
 1. Open the app with `pnpm dev:desktop`.
 2. Add a target API profile in `API 配置`.
 3. Fill the project, batch, tester, and test purpose on the dashboard.
-4. Run `标准评测` first when an operator wants a guided low-cost screening flow.
-5. Run `快速测试` manually when debugging URL, key, model, or protocol issues.
-6. Run `稳定性测试`:
+4. For non-technical operators, run `标准评测` first. It chains connectivity, low-round stability, and a few scenario checks.
+5. Review `报告中心` for the plain conclusion, ranking, test runs, and request logs.
+6. Copy the handoff template or open the saved report file under `NexusAPI数据/报告/`.
+
+Advanced retest entries:
+
+1. Run `快速测试` manually when debugging URL, key, model, or protocol issues.
+2. Run `稳定性测试` when a candidate needs more rounds:
    - `3 轮` is for a quick smoke test.
    - `10 轮` is the default basic stability test.
    - `30 轮` is a more complete check.
-7. Use `批量并发测试` when comparing multiple models or channels:
+3. Use `批量并发测试` when comparing multiple models or channels:
    - `同时测试 API 数` controls how many profiles run at the same time.
    - `单 API 请求并发` controls concurrency inside one profile.
-8. Use `场景测试` when evaluating complex task capability:
+4. Use `场景测试` when evaluating complex task capability:
    - Choose from low-cost screening, coding, long-context, full baseline, or deep candidate scenario packs.
    - Start with the low-cost screening pack.
    - Increase repeats when comparing serious candidates.
-9. Review `报告中心` for summary cards, ranking, test runs, and request logs.
-10. Copy the handoff template or open the saved report file under `NexusAPI数据/报告/`.
 
 For non-technical operators, read the full Chinese guide:
 

@@ -19,6 +19,7 @@ import { renderDeliveryPanels } from "./delivery-panel.js";
 import {
   formatBatchResult,
   formatScenarioResult,
+  formatStabilityResult,
 } from "./formatters.js";
 import { renderRequestList, renderTaskEventList, renderTestRunList } from "./history-view.js";
 import { buildWorkflowStatus, getNextWorkflowStep, renderNextActionHtml } from "./workflow-guide.js";
@@ -60,7 +61,10 @@ const state = {
   taskEvents: [],
   scenarios: [],
   manualLoaded: false,
-  latestReport: "",
+  latestReportCopies: {
+    stability: "",
+    scenario: "",
+  },
   activeTasks: {},
   projectInfo: loadProjectInfo(),
   latestStandardProfileId: "",
@@ -161,6 +165,10 @@ const quickFailurePanel = createQuickFailurePanel({
   updateProfileKey,
   retryQuickTest: () => quickTestForm.requestSubmit(),
   openProfiles: () => showPage("profiles"),
+  openStandardEval: (profileId) => {
+    if (profileId) standardProfileSelect.value = profileId;
+    showPage("standard-eval");
+  },
   openReports: () => showPage("reports"),
   openStabilitySmoke: (profileId) => {
     if (profileId) stabilityProfileSelect.value = profileId;
@@ -205,14 +213,14 @@ requireElement("#reload-profiles").addEventListener("click", loadProfiles);
 requireElement("#reload-requests").addEventListener("click", async () => {
   await Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]);
 });
-requireElement("#copy-stability-report").addEventListener("click", copyStabilityReport);
-requireElement("#copy-scenario-report").addEventListener("click", copyLatestReport);
+requireElement("#copy-stability-report").addEventListener("click", () => copyReportText("stability"));
+requireElement("#copy-scenario-report").addEventListener("click", () => copyReportText("scenario"));
 requireElement("#copy-handoff-template").addEventListener("click", copyHandoffTemplate);
 requireElement("#refresh-handoff-template").addEventListener("click", renderDeliveryViews);
 requireElement("#reload-manual").addEventListener("click", loadManual);
 requireElement("#export-profiles").addEventListener("click", exportProfiles);
 requireElement("#export-support-bundle").addEventListener("click", exportSupportBundle);
-requireElement("#save-and-test-profile").addEventListener("click", profileController.saveAndTestProfile);
+requireElement("#save-profile-only").addEventListener("click", saveProfileOnly);
 requireElement("#import-profiles-button").addEventListener("click", () => {
   requireElement("#import-profiles-file").click();
 });
@@ -251,13 +259,17 @@ projectInfoForm.addEventListener("submit", (event) => {
 
 profileForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  await profileController.saveAndTestProfile();
+});
+
+async function saveProfileOnly() {
   try {
     await profileController.saveProfileFromForm({ resetAfterSave: true });
     toast("API 配置已保存。");
   } catch (error) {
     toast(error.message, true);
   }
-});
+}
 
 createQuickTestController({
   form: quickTestForm,
@@ -278,9 +290,6 @@ createStandardEvalController({
   estimateCost: estimateStandardCost,
   confirmRun: (title, estimate) => confirmAction(confirmExecution(title, estimate)),
   refreshResults: () => Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]),
-  setLatestReport: (report) => {
-    state.latestReport = report;
-  },
   showPage,
   quickProfileSelect,
   stabilityProfileSelect,
@@ -305,11 +314,13 @@ createTaskFormController({
   beforeStart: (payload) => {
     stabilitySummary.innerHTML = `<p class="muted">正在进行 ${payload.rounds} 轮测试。请不要关闭窗口。</p>`;
     stabilityReport.textContent = "测试完成后会自动生成报告。";
+    state.latestReportCopies.stability = "";
   },
   onSuccess: async (result) => {
-    state.latestReport = result.reportMarkdown || "";
+    const copyableSummary = getCopyableReportText(result, formatStabilityResult(result));
+    state.latestReportCopies.stability = copyableSummary;
     renderStabilitySummary(result);
-    stabilityReport.textContent = result.reportMarkdown || "没有生成报告。";
+    stabilityReport.textContent = copyableSummary;
     await Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]);
     toast("稳定性测试完成。");
   },
@@ -334,8 +345,8 @@ createTaskFormController({
     batchTestResult.textContent = `正在测试 ${payload.profileIds.length} 个 API。测试期间可以等待，不要关闭窗口。`;
   },
   onSuccess: async (result) => {
-    state.latestReport = result.reportMarkdown || "";
-    batchTestResult.textContent = result.reportMarkdown || formatBatchResult(result);
+    const copyableSummary = getCopyableReportText(result, formatBatchResult(result));
+    batchTestResult.textContent = copyableSummary;
     await Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]);
     toast("批量测试完成。");
   },
@@ -360,10 +371,12 @@ createTaskFormController({
   },
   beforeStart: (payload) => {
     scenarioTestResult.textContent = `正在测试 ${payload.profileIds.length} 个 API、${payload.scenarioIds.length} 个场景。复杂场景耗时较长，请等待。`;
+    state.latestReportCopies.scenario = "";
   },
   onSuccess: async (result) => {
-    state.latestReport = result.reportMarkdown || "";
-    scenarioTestResult.textContent = result.reportMarkdown || formatScenarioResult(result);
+    const copyableSummary = getCopyableReportText(result, formatScenarioResult(result));
+    state.latestReportCopies.scenario = copyableSummary;
+    scenarioTestResult.textContent = copyableSummary;
     await Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]);
     toast("场景测试完成。");
   },
@@ -647,18 +660,23 @@ function renderProfileConfigCheck(validation = null) {
   });
 }
 
-async function copyStabilityReport() {
-  await copyLatestReport();
-}
-
-async function copyLatestReport() {
-  if (!state.latestReport) {
+async function copyReportText(kind) {
+  const text = state.latestReportCopies[kind] || "";
+  if (!text) {
     toast("当前没有可复制的报告。", true);
     return;
   }
 
-  await copyText(state.latestReport);
-  toast("报告已复制。");
+  await copyText(text);
+  toast("摘要和报告路径已复制。");
+}
+
+function getCopyableReportText(result, fallbackText) {
+  const markdown = String(result?.reportMarkdown || "");
+  if (markdown && !markdown.includes("报告内容已写入本地报告文件")) {
+    return markdown;
+  }
+  return fallbackText;
 }
 
 async function copyHandoffTemplate() {

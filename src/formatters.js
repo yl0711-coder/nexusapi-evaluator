@@ -62,6 +62,23 @@ export function formatBatchResult(result) {
   return lines.join("\n");
 }
 
+export function formatStabilityResult(result) {
+  const lines = [
+    `测试 ID：${result.runId || "-"}`,
+    `被测 API：${result.profileName || "-"}`,
+    `模型：${result.model || "-"}`,
+    `测试轮数：${result.rounds ?? "-"}`,
+    `成功率：${result.successRateText || "-"}`,
+    `平均耗时：${result.avgTotalMs || "-"} ms`,
+    `慢请求参考：${result.p95TotalMs ?? "-"} ms`,
+    `结论：${result.recommendation?.title || "-"}`,
+    `说明：${result.recommendation?.detail || "-"}`,
+    `Markdown 报告：${result.reportPath || "-"}`,
+    `HTML 报告：${result.reportHtmlPath || "-"}`,
+  ];
+  return lines.join("\n");
+}
+
 export function formatScenarioResult(result) {
   const lines = [
     `测试 ID：${result.runId}`,

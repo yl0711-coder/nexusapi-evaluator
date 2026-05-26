@@ -6,6 +6,7 @@ export function createQuickFailurePanel({
   updateProfileKey,
   retryQuickTest,
   openProfiles,
+  openStandardEval,
   openReports,
   openStabilitySmoke,
 }) {
@@ -38,9 +39,31 @@ export function createQuickFailurePanel({
     });
   }
 
+  function renderSuccess(profileId) {
+    container.className = "next-step-panel pass-card";
+    container.innerHTML = `
+      <div>
+        <span>下一步怎么做</span>
+        <strong>连通已经通过，建议进入标准评测</strong>
+        <p>快速测试只证明这条配置能请求成功。要判断是否值得交付，还需要跑标准评测。</p>
+      </div>
+      <div class="action-row">
+        <button class="primary" type="button" data-quick-action="standard-eval">去标准评测</button>
+        <button class="secondary" type="button" data-quick-action="retry-quick">重新跑快速测试</button>
+      </div>
+    `;
+    container.querySelectorAll("[data-quick-action]").forEach((button) => {
+      button.addEventListener("click", () => runAction(button.dataset.quickAction, profileId));
+    });
+  }
+
   async function runAction(action, profileId) {
     if (action === "update-key") {
       await updateProfileKey(profileId || getDefaultProfileId());
+      return;
+    }
+    if (action === "standard-eval") {
+      openStandardEval(profileId || getDefaultProfileId());
       return;
     }
     if (action === "retry-quick") {
@@ -58,7 +81,7 @@ export function createQuickFailurePanel({
     openProfiles();
   }
 
-  return { clear, render };
+  return { clear, render, renderSuccess };
 }
 
 function inferErrorKey(errorLike) {

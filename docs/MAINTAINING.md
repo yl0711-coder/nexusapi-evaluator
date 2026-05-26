@@ -105,7 +105,7 @@ server/scenarios/safety.mjs
 内容安全打包开关：
 
 - 默认会加载内容安全场景。
-- 如果要给普通外包人员打包，不希望暴露内容安全测试入口，可以设置 `NEXUSAPI_ENABLE_SAFETY_SCENARIOS=0` 启动服务。
+- 如果要给普通测试人员打包，不希望暴露内容安全测试入口，可以设置 `NEXUSAPI_ENABLE_SAFETY_SCENARIOS=0` 启动服务。
 - 内容安全用例只能使用“模拟违规请求 + 不给可执行细节”的形式，不得加入真实个人隐私、真实政治事件细节、露骨内容或违法操作步骤。
 
 ### 3.2 新增协议
@@ -367,6 +367,6 @@ rg "你的真实Key片段" NexusAPI数据 docs README.md src server server.mjs i
 - `src/app.js` 已完成主要拆分，后续新增页面必须优先新建 controller/view 模块，不要让入口文件重新膨胀。
 - `src/styles.css` 仍是单文件样式，后续 UI 继续变复杂时可以拆成 `layout.css`、`forms.css`、`cards.css`、`reports.css`。
 - 场景测试当前仍是规则评分，正式质量评测前需要接入主评测模型或人工复核流程。
-- 当前界面已经做了非技术人员提示优化，但正式交付前仍需要真实外包用户试用反馈。
+- 当前界面已经做了非技术人员提示优化，但正式交付前仍需要真实协作测试人员试用反馈。
 - 目前仍需继续补真实 HTTP 路由级集成测试和打包后的桌面应用验收测试。
 - 正式交付前需要完成 Windows/macOS 安装包和真实用户验收。

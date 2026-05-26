@@ -80,7 +80,7 @@ export function createProfileController({
         toast("配置可用，快速测试已通过。");
         quickProfileSelect.value = saved.id;
         quickTestResult.textContent = formatResult(result);
-        quickFailurePanel.clear();
+        quickFailurePanel.renderSuccess(saved.id);
         showPage("quick-test");
       } else {
         quickProfileSelect.value = saved.id;

@@ -21,7 +21,7 @@ export const QUICK_PROMPT_PRESETS = [
     id: "chinese",
     label: "中文能力：一句话说明",
     hint: "适合确认模型中文回复是否自然，成本仍然很低。",
-    prompt: "请用一句自然的中文说明：你已经准备好接受后续稳定性测试。",
+    prompt: "请用一句自然的中文说明：你已经准备好进入后续标准评测。",
   },
   {
     id: "custom",
@@ -40,9 +40,9 @@ export const STANDARD_PROMPT_PRESETS = [
   },
   {
     id: "operator",
-    label: "外包验收：人话回复",
+    label: "人工验收：人话回复",
     hint: "适合非技术测试人员验收，回复内容容易判断是否正常。",
-    prompt: "请用两句话说明你能正常工作，并提醒测试人员下一步可以运行稳定性测试。",
+    prompt: "请用两句话说明你能正常工作，并提醒测试人员本次连通正常，可以继续后续评测流程。",
   },
   {
     id: "format",

@@ -320,7 +320,7 @@ export function buildStandardNextStepAdvice({ quick, stability, scenario }) {
   if (successRate >= 0.95 && (!p95 || p95 <= 30000) && (avgScore === null || avgScore >= 70)) {
     return [
       "初筛结果可用，可以进入更正式的复测。",
-      "下一步：跑 10 轮基础稳定性；如果要推荐给负责人，再跑基础全量场景包。",
+      "下一步：先复制交付模板给负责人；如果负责人要求更稳妥，再跑 10 轮稳定性或基础全量场景包。",
     ];
   }
 
@@ -362,7 +362,7 @@ export function buildStandardOperatorSummary({ quick, stability, scenario }) {
     return {
       level: "pass",
       title: "初筛通过，值得进入下一轮复测",
-      detail: "这条 API 基本可用。下一步建议跑 10 轮稳定性；如果要推荐给负责人，再跑完整场景包。",
+      detail: "这条 API 基本可用。可以先复制交付模板给负责人；如果要更稳妥，再跑 10 轮稳定性或完整场景包。",
     };
   }
 
@@ -400,9 +400,9 @@ export function buildStandardActionPlan({ quick, stability, scenario }) {
   const summary = buildStandardOperatorSummary({ quick, stability, scenario });
   if (summary.level === "pass") {
     return [
-      { label: "跑 10 轮稳定性", action: "stability-basic", kind: "primary" },
+      { label: "复制交付模板", action: "handoff", kind: "primary" },
+      { label: "跑 10 轮稳定性", action: "stability-basic", kind: "secondary" },
       { label: "跑基础全量场景", action: "scenario-basic", kind: "secondary" },
-      { label: "复制交付模板", action: "handoff", kind: "secondary" },
     ];
   }
 

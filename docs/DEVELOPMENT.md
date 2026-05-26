@@ -213,18 +213,19 @@ Maintenance rules:
 ## Operator Testing Flow
 
 1. Add or verify an API profile.
-2. Run one quick test. If this fails, do not run a stability test yet.
-3. Run a 3-round smoke test after changing URL, model, key, or protocol.
-4. Run a 10-round basic stability test for normal evaluation.
-5. Run a 30-round test when comparing candidate channels or before recommending a provider.
-6. Use batch stability testing when comparing multiple channels:
+2. Non-technical operators should run standard evaluation first. It covers connectivity, low-round stability, and a few scenario checks.
+3. After standard evaluation passes, review the report center for the plain conclusion, ranking, and report paths.
+4. For handoff, copy the handoff template and attach the saved report file.
+5. Run a standalone quick test only when debugging URL, model, key, or protocol changes.
+6. Use advanced retests, such as 10-round or 30-round stability tests, when comparing candidate channels or before recommending a provider.
+7. Use batch stability testing when comparing multiple channels:
    - Keep `同时测试 API 数` at 2 by default.
    - Keep `单 API 请求并发` at 1 unless specifically testing gateway concurrency.
-7. Use scenario testing when evaluating complex task capability:
+8. Use scenario testing when evaluating complex task capability:
    - Start with all built-in scenarios selected.
    - Keep repeats at 1 for quick screening.
    - Increase repeats to 2 or 3 when comparing final candidates.
-8. Attach the generated Markdown report when reporting results.
+9. Attach the generated Markdown or HTML report when reporting results.
 
 ## Stability Metrics
 

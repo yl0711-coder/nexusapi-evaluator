@@ -19,21 +19,21 @@
         </div>
         <div class="nav-group">
           <span>推荐流程</span>
-          <button class="nav-button active" data-page="dashboard">总览</button>
-          <button class="nav-button" data-page="profiles">1. API 配置</button>
-          <button class="nav-button" data-page="standard-eval">2. 标准评测</button>
-          <button class="nav-button" data-page="reports">3. 报告中心</button>
-          <button class="nav-button" data-page="handoff">4. 测试交付</button>
+          <button class="nav-button active" type="button" data-page="dashboard">总览</button>
+          <button class="nav-button" type="button" data-page="profiles">1. API 配置</button>
+          <button class="nav-button" type="button" data-page="standard-eval">2. 标准评测</button>
+          <button class="nav-button" type="button" data-page="reports">3. 报告中心</button>
+          <button class="nav-button" type="button" data-page="handoff">4. 测试交付</button>
         </div>
         <div class="nav-group">
           <span>高级测试</span>
-          <button class="nav-button" data-page="quick-test">快速测试</button>
-          <button class="nav-button" data-page="stability-test">稳定性测试</button>
-          <button class="nav-button" data-page="scenario-test">场景测试</button>
+          <button class="nav-button" type="button" data-page="quick-test">快速测试</button>
+          <button class="nav-button" type="button" data-page="stability-test">稳定性测试</button>
+          <button class="nav-button" type="button" data-page="scenario-test">场景测试</button>
         </div>
         <div class="nav-group">
           <span>帮助</span>
-          <button class="nav-button" data-page="manual">使用手册</button>
+          <button class="nav-button" type="button" data-page="manual">使用手册</button>
         </div>
       </aside>
 
@@ -64,7 +64,7 @@
               </p>
               <div class="hero-actions">
                 <button class="primary" type="button" data-go-page="profiles">开始配置 API</button>
-                <button class="secondary" type="button" data-go-page="standard-eval">去标准评测</button>
+                <button class="secondary" type="button" data-go-page="standard-eval">已有配置，去标准评测</button>
                 <button class="secondary" type="button" data-go-page="manual">查看操作手册</button>
                 <button id="load-demo-data" class="secondary" type="button">查看演示数据</button>
               </div>
@@ -94,15 +94,15 @@
             <article class="metric-card">
               <span>测试报告</span>
               <strong id="test-run-count">0</strong>
-              <small>稳定性测试记录</small>
+              <small>标准 / 稳定 / 场景记录</small>
             </article>
           </div>
 
           <form id="project-info-form" class="panel form-grid project-info-form">
             <div class="wide">
               <p class="eyebrow">本次测试信息</p>
-              <h3>先把项目、批次和测试人写清楚</h3>
-              <p class="section-desc">这些信息会自动带入交付模板，方便负责人知道这次测的是谁、哪一批、为什么测。</p>
+              <h3>建议把项目、批次和测试人写清楚</h3>
+              <p class="section-desc">这一步不是必填。填写后会自动带入交付模板，方便负责人知道这次测的是谁、哪一批、为什么测。</p>
             </div>
             <label>
               项目 / 客户
@@ -114,7 +114,7 @@
             </label>
             <label>
               测试人员
-              <input name="testerName" placeholder="例如 外包测试 A / 运营同事" />
+              <input name="testerName" placeholder="例如 测试人员 A / 运营同事" />
             </label>
             <label>
               测试目的
@@ -141,8 +141,8 @@
                 <small>填写 URL、Key、模型名和协议。</small>
                 <button class="secondary" type="button" data-go-page="profiles">去配置</button>
               </article>
-            <article class="workflow-step" data-step="quick">
-              <span>2</span>
+              <article class="workflow-step" data-step="standard">
+                <span>2</span>
                 <strong>标准评测</strong>
                 <small>一键跑快速测试、3 轮稳定性和少量场景。</small>
                 <button class="secondary" type="button" data-go-page="standard-eval">去评测</button>
@@ -278,12 +278,12 @@
             <div>
               <p class="eyebrow">API 配置管理</p>
               <h2>API 配置</h2>
-              <p class="section-desc">先把要测试的 API 填进来。配置成功后，下一步一定先跑快速测试。</p>
+              <p class="section-desc">先把要测试的 API 填进来。普通用户直接点“保存并测试配置”，通过后再进入标准评测。</p>
             </div>
             <div class="action-row">
               <button id="export-profiles" class="secondary" type="button">导出配置</button>
               <button id="import-profiles-button" class="secondary" type="button">导入配置</button>
-              <button id="reload-profiles" class="secondary">刷新</button>
+              <button id="reload-profiles" class="secondary" type="button">刷新</button>
               <input id="import-profiles-file" type="file" accept="application/json,.json" hidden />
             </div>
           </div>
@@ -394,8 +394,8 @@
             </details>
             <div id="profile-check-result" class="wide check-panel muted">填写配置后，这里会提示明显风险。</div>
             <div class="wide action-row split-actions">
-              <button id="save-and-test-profile" class="primary" type="button">保存并测试配置</button>
-              <button class="secondary quiet-action" type="submit">仅保存，不测试</button>
+              <button id="save-and-test-profile" class="primary" type="submit">保存并测试配置</button>
+              <button id="save-profile-only" class="secondary quiet-action" type="button">仅保存，不测试</button>
             </div>
           </form>
 
@@ -556,12 +556,12 @@
 
           <div class="panel">
             <div class="section-header compact">
-              <h3>Markdown 报告</h3>
-              <button id="copy-stability-report" class="secondary" type="button">复制报告</button>
+              <h3>报告摘要与文件路径</h3>
+              <button id="copy-stability-report" class="secondary" type="button">复制摘要和路径</button>
             </div>
             <details class="technical-details">
-              <summary>查看 Markdown 技术报告</summary>
-              <pre id="stability-report" class="result-box report-box">测试完成后会在这里生成详细报告。</pre>
+              <summary>查看测试摘要和报告位置</summary>
+              <pre id="stability-report" class="result-box report-box">测试完成后会在这里显示摘要和本地报告文件路径。</pre>
             </details>
           </div>
 
@@ -737,11 +737,11 @@
 
           <div class="panel">
             <div class="section-header compact">
-              <h3>场景测试报告</h3>
-              <button id="copy-scenario-report" class="secondary" type="button">复制报告</button>
+              <h3>场景测试摘要与文件路径</h3>
+              <button id="copy-scenario-report" class="secondary" type="button">复制摘要和路径</button>
             </div>
             <details class="technical-details">
-              <summary>查看场景测试技术报告</summary>
+              <summary>查看场景测试摘要和报告位置</summary>
               <pre id="scenario-test-result" class="result-box report-box">等待测试。</pre>
             </details>
           </div>
@@ -756,13 +756,13 @@
             </div>
             <div class="action-row">
               <button id="export-support-bundle" class="secondary" type="button">导出问题包</button>
-              <button id="reload-requests" class="secondary">刷新</button>
+              <button id="reload-requests" class="secondary" type="button">刷新</button>
             </div>
           </div>
           <div class="panel">
             <div class="section-header compact">
               <div>
-                <p class="eyebrow">外包只看这里</p>
+                <p class="eyebrow">先看这里</p>
                 <h3>极简结论</h3>
               </div>
               <button class="secondary" type="button" data-go-page="handoff">复制交付内容</button>
@@ -791,7 +791,7 @@
               </div>
             </div>
             <div id="ranking-list" class="ranking-list">
-              <p class="muted">完成稳定性测试或场景测试后会生成排行榜。</p>
+              <p class="muted">完成标准评测或高级复测后会生成排行榜。</p>
             </div>
           </div>
           <div class="panel">
@@ -812,7 +812,7 @@
         <section class="page" id="handoff">
           <div class="section-header">
             <div>
-              <p class="eyebrow">外包交付</p>
+              <p class="eyebrow">测试交付</p>
               <h2>测试交付模板</h2>
             </div>
             <button id="copy-handoff-template" class="secondary" type="button">复制交付模板</button>
@@ -828,7 +828,7 @@
           <div class="panel">
             <h3>当前交付结论</h3>
             <div id="handoff-summary" class="insight-grid">
-              <p class="muted">还没有测试结果。请先完成快速测试、稳定性测试或场景测试。</p>
+              <p class="muted">还没有测试结果。请先完成标准评测。</p>
             </div>
           </div>
 
@@ -836,8 +836,8 @@
             <h3>交付前检查清单</h3>
             <div class="checklist-grid">
               <label><input type="checkbox" /> 已确认 API 配置名称、模型名、协议填写正确</label>
-              <label><input type="checkbox" /> 已完成快速测试，并确认至少 1 次成功响应</label>
-              <label><input type="checkbox" /> 已完成 3 轮或 10 轮稳定性测试</label>
+              <label><input type="checkbox" /> 已完成标准评测，或已单独完成快速测试和稳定性测试</label>
+              <label><input type="checkbox" /> 已确认至少 1 次成功响应，并查看成功率和慢请求</label>
               <label><input type="checkbox" /> 如涉及复杂任务，已完成场景测试并查看质量分</label>
               <label><input type="checkbox" /> 已查看错误诊断，不只看成功率</label>
               <label><input type="checkbox" /> 已准备报告文件路径、异常说明和平台 Request ID</label>
@@ -859,7 +859,7 @@
               <p class="eyebrow">中文使用说明</p>
               <h2>使用手册</h2>
             </div>
-            <button id="reload-manual" class="secondary">刷新手册</button>
+            <button id="reload-manual" class="secondary" type="button">刷新手册</button>
           </div>
 
           <div class="panel manual-panel">

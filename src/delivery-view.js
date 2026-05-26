@@ -17,7 +17,7 @@ export function getLatestRuns(state) {
 
 export function renderInsightCards(runs, { compact }) {
   if (!runs.latest && !runs.latestRequest) {
-    return `<p class="muted">还没有可分析的测试结果。建议先完成快速测试和稳定性测试。</p>`;
+    return `<p class="muted">还没有可分析的测试结果。普通操作员建议先完成标准评测。</p>`;
   }
 
   const cards = [];
@@ -86,7 +86,7 @@ export function buildRankingRows(testRuns) {
 
 export function renderRankingList(rows) {
   if (!rows.length) {
-    return `<p class="muted">完成稳定性测试或场景测试后会生成排行榜。</p>`;
+    return `<p class="muted">完成标准评测或高级复测后会生成排行榜。</p>`;
   }
 
   return rows
@@ -123,7 +123,7 @@ export function renderRankingList(rows) {
 
 export function renderPlainConclusion(runs) {
   if (!runs.latest && !runs.latestStability && !runs.latestScenario && !runs.latestRequest) {
-    return `<p class="muted">还没有测试结果。先完成标准评测或快速测试。</p>`;
+    return `<p class="muted">还没有测试结果。普通操作员先完成标准评测。</p>`;
   }
 
   if (runs.interruptedTasks.length > 0) {
@@ -167,7 +167,7 @@ export function renderPlainConclusion(runs) {
       level: runs.latestRequest.success ? "watch" : "fail",
       title: runs.latestRequest.success ? "只证明能连通" : "不推荐",
       reason: runs.latestRequest.success ? "最近一次快速测试成功，但还没有稳定性结论。" : "最近一次快速测试失败。",
-      next: runs.latestRequest.success ? "继续跑标准评测或 3 轮稳定性测试。" : "先修配置，再重新快速测试。",
+      next: runs.latestRequest.success ? "继续跑标准评测，生成可交付结论。" : "先修配置，再重新快速测试。",
       evidence: `最近请求：${runs.latestRequest.success ? "成功" : "失败"}`,
     });
   }
@@ -206,11 +206,11 @@ export function buildHandoffTemplate(runs, projectInfo = {}) {
       "",
       "当前还没有测试结果。",
       "",
-      "建议先执行：API 配置 -> 快速测试 -> 稳定性测试 -> 场景测试。",
+      "建议先执行：API 配置 -> 标准评测 -> 报告中心 -> 测试交付。",
     ].join("\n");
   }
 
-  const latestSummary = latest ? summarizeRunForHandoff(latest) : "暂无测试报告，只有快速请求记录。";
+  const latestSummary = latest ? summarizeRunForHandoff(latest) : "只有快速测试记录，还没有可交付的完整报告。建议继续跑标准评测。";
   return [
     "# NexusAPI 测试交付",
     "",

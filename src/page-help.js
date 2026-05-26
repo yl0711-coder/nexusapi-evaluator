@@ -3,7 +3,7 @@ import { escapeHtml } from "./client-utils.js";
 const PAGE_HELP = {
   dashboard: {
     title: "总览页怎么用",
-    steps: ["先填写本次测试信息。", "如果还没配置 API，点“开始配置 API”。", "想先熟悉工具，可以点“查看演示数据”。"],
+    steps: ["可以先填写本次测试信息，也可以直接配置 API。", "如果还没配置 API，点“开始配置 API”。", "想先熟悉工具，可以点“查看演示数据”。"],
   },
   profiles: {
     title: "API 配置怎么填",
@@ -15,7 +15,7 @@ const PAGE_HELP = {
   },
   "quick-test": {
     title: "快速测试怎么用",
-    steps: ["每次新增或修改配置后先跑这里。", "成功只代表能连通，不代表稳定。", "失败时优先按下方按钮处理 Key、模型名、协议或地址。"],
+    steps: ["每次新增或修改配置后先跑这里。", "成功只代表能连通，不代表稳定，下一步去标准评测。", "失败时优先按下方按钮处理 Key、模型名、协议或地址。"],
   },
   "stability-test": {
     title: "稳定性测试怎么用",

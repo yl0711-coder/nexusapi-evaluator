@@ -4,17 +4,13 @@ import { escapeHtml } from "./client-utils.js";
 // do next, while app.js only renders the returned step and wires navigation.
 export function buildWorkflowStatus(state) {
   const targets = state.profiles.filter((profile) => profile.role === "target");
-  const successfulRequests = state.requests.filter((request) => request.success);
-  const stabilityRuns = state.testRuns.filter((run) => run.type !== "scenario");
-  const scenarioRuns = state.testRuns.filter((run) => run.type === "scenario");
+  const hasReports = state.testRuns.length > 0;
 
   return {
     profiles: targets.length > 0,
-    quick: successfulRequests.length > 0,
-    stability: stabilityRuns.length > 0,
-    scenario: scenarioRuns.length > 0,
-    reports: state.testRuns.length > 0,
-    handoff: state.testRuns.length > 0,
+    standard: hasReports,
+    reports: hasReports,
+    handoff: false,
   };
 }
 
@@ -28,31 +24,13 @@ export function getNextWorkflowStep(status) {
       button: "去配置 API",
     };
   }
-  if (!status.quick) {
+  if (!status.standard) {
     return {
-      step: "quick",
-      page: "quick-test",
-      title: "先做 1 次快速连通测试",
-      detail: "快速测试成本最低，可以先排除 URL、Key、模型名、协议错误。",
-      button: "去快速测试",
-    };
-  }
-  if (!status.stability) {
-    return {
-      step: "stability",
-      page: "stability-test",
-      title: "跑 3 轮或 10 轮稳定性测试",
-      detail: "快速测试成功只代表单次能通，稳定性测试才能看到成功率、慢请求和错误分布。",
-      button: "去稳定性测试",
-    };
-  }
-  if (!status.scenario) {
-    return {
-      step: "scenario",
-      page: "scenario-test",
-      title: "选择少量场景做复杂任务评估",
-      detail: "建议先选 2-3 个场景，不要一开始全量跑，避免浪费额度。",
-      button: "去场景测试",
+      step: "standard",
+      page: "standard-eval",
+      title: "运行一次标准评测",
+      detail: "标准评测会自动完成连通、低轮稳定性和少量场景初筛，普通操作员不需要先进入高级测试。",
+      button: "去标准评测",
     };
   }
   return {

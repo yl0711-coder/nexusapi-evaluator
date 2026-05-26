@@ -6,8 +6,8 @@ export function renderRequestList({ requests, container }) {
     container.innerHTML = `
       <div class="empty-state">
         <strong>还没有跑过测试</strong>
-        <p>请求记录会在快速测试、稳定性测试或场景测试后出现。建议先跑一次快速测试。</p>
-        <button class="primary" type="button" data-go-page="quick-test">去快速测试</button>
+        <p>请求记录会在标准评测、快速测试、稳定性测试或场景测试后出现。普通操作员建议先跑标准评测。</p>
+        <button class="primary" type="button" data-go-page="standard-eval">去标准评测</button>
       </div>
     `;
     return;
@@ -37,7 +37,7 @@ export function renderTestRunList({ runs, container }) {
     container.innerHTML = `
       <div class="empty-state">
         <strong>还没有正式测试报告</strong>
-        <p>快速测试成功后，再跑标准评测或 3 轮稳定性测试，这里就会出现报告。</p>
+        <p>跑完标准评测后，这里就会出现稳定性报告、场景报告和可交付结论。</p>
         <button class="primary" type="button" data-go-page="standard-eval">去标准评测</button>
       </div>
     `;
@@ -52,8 +52,8 @@ export function renderTaskEventList({ tasks, container }) {
     container.innerHTML = `
       <div class="empty-state">
         <strong>还没有长任务记录</strong>
-        <p>稳定性、批量或场景测试开始后，这里会记录任务进度、完成、取消或失败。</p>
-        <button class="secondary" type="button" data-go-page="stability-test">去稳定性测试</button>
+        <p>标准评测、稳定性、批量或场景测试开始后，这里会记录任务进度、完成、取消或失败。</p>
+        <button class="secondary" type="button" data-go-page="standard-eval">去标准评测</button>
       </div>
     `;
     return;

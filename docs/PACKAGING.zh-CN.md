@@ -25,7 +25,7 @@
 
 标准版会设置 `NEXUSAPI_ENABLE_SAFETY_SCENARIOS=0`，隐藏内部内容安全合规测试。
 
-内部风控版会设置 `NEXUSAPI_ENABLE_SAFETY_SCENARIOS=1`，显示内容安全合规测试。这个版本只交给负责人或受训测试人员，不要发给普通外包人员。
+内部风控版会设置 `NEXUSAPI_ENABLE_SAFETY_SCENARIOS=1`，显示内容安全合规测试。这个版本只交给负责人或受训测试人员，不要发给普通测试人员。
 
 ## GitHub Actions 打包
 
@@ -41,7 +41,7 @@ workflow 文件在 `.github/workflows/release.yml`。
 
 Release 打包：
 
-1. 创建并推送 tag，例如 `v0.1.1`。
+1. 创建并推送 tag，例如 `v0.1.2`。
 2. GitHub Actions 会自动打包 macOS/Windows 的标准版和内部风控版。
 3. 生成的 zip 文件会上传到 GitHub Release。
 

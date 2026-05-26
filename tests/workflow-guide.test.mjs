@@ -11,7 +11,7 @@ test("workflow guide points operators to the next missing step", () => {
     requests: [],
     testRuns: [],
   });
-  assert.equal(getNextWorkflowStep(quickStatus).step, "quick");
+  assert.equal(getNextWorkflowStep(quickStatus).step, "standard");
 
   const handoffStatus = buildWorkflowStatus({
     profiles: [{ role: "target" }],
@@ -19,6 +19,8 @@ test("workflow guide points operators to the next missing step", () => {
     testRuns: [{ type: "stability" }, { type: "scenario" }],
   });
   assert.equal(getNextWorkflowStep(handoffStatus).step, "handoff");
+  assert.equal(handoffStatus.reports, true);
+  assert.equal(handoffStatus.handoff, false);
 });
 
 test("workflow guide escapes operator-facing html", () => {
