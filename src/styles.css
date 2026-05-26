@@ -58,14 +58,12 @@ code {
 }
 
 .brand-mark {
-  display: inline-grid;
   width: 42px;
   height: 42px;
-  place-items: center;
-  border-radius: 14px;
-  color: #111827;
-  background: var(--accent);
-  font-weight: 800;
+  display: block;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26);
 }
 
 .brand small {
@@ -293,6 +291,39 @@ code {
 
 .guide-grid.compact-grid {
   margin: 0 0 18px;
+}
+
+.helper-details,
+.technical-details {
+  max-width: 1180px;
+  margin: 0 0 18px;
+  border: 1px solid rgba(109, 169, 255, 0.18);
+  border-radius: 18px;
+  background: rgba(8, 17, 31, 0.28);
+}
+
+.helper-details summary,
+.technical-details summary,
+.collapsible-panel summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 800;
+  list-style-position: inside;
+}
+
+.helper-details summary,
+.technical-details summary {
+  padding: 13px 16px;
+}
+
+.helper-details[open] summary,
+.technical-details[open] summary {
+  border-bottom: 1px solid rgba(109, 169, 255, 0.14);
+}
+
+.helper-details .guide-grid,
+.technical-details .result-box {
+  margin: 14px 16px 16px;
 }
 
 .guide-card {
@@ -537,6 +568,18 @@ code {
 .panel {
   padding: 22px;
   margin-bottom: 18px;
+}
+
+.collapsible-panel {
+  background: rgba(14, 24, 40, 0.58);
+}
+
+.collapsible-panel summary {
+  font-size: 19px;
+}
+
+.collapsible-panel[open] summary {
+  margin-bottom: 12px;
 }
 
 .project-info-form {

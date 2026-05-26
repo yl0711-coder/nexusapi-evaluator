@@ -4,13 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NexusAPI Evaluator</title>
+    <link rel="icon" type="image/png" href="/src/assets/nexusapi-logo.png" />
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
     <div id="app">
       <aside class="sidebar">
         <div class="brand">
-          <span class="brand-mark">N</span>
+          <img class="brand-mark" src="/src/assets/nexusapi-logo.png" alt="NexusAPI" />
           <div>
             <strong>NexusAPI</strong>
             <small>模型渠道评测工具</small>
@@ -113,7 +114,7 @@
             </label>
             <label>
               测试人员
-              <input name="testerName" placeholder="例如 外包测试 A / 杨磊" />
+              <input name="testerName" placeholder="例如 外包测试 A / 运营同事" />
             </label>
             <label>
               测试目的
@@ -175,23 +176,26 @@
             </div>
           </div>
 
-          <div class="guide-grid compact-grid">
-            <article class="guide-card">
-              <span>第 1 步</span>
-              <strong>快速测试</strong>
-              <p>先确认 URL、Key、模型名和协议能正常请求。</p>
-            </article>
-            <article class="guide-card">
-              <span>第 2 步</span>
-              <strong>3 轮稳定性</strong>
-              <p>用低成本方式观察是否有超时、空响应或上游错误。</p>
-            </article>
-            <article class="guide-card">
-              <span>第 3 步</span>
-              <strong>少量复杂场景</strong>
-              <p>只跑 2 个轻量场景，快速判断是否值得进入深度复测。</p>
-            </article>
-          </div>
+          <details class="helper-details">
+            <summary>查看本页说明</summary>
+            <div class="guide-grid compact-grid">
+              <article class="guide-card">
+                <span>第 1 步</span>
+                <strong>快速测试</strong>
+                <p>先确认 URL、Key、模型名和协议能正常请求。</p>
+              </article>
+              <article class="guide-card">
+                <span>第 2 步</span>
+                <strong>3 轮稳定性</strong>
+                <p>用低成本方式观察是否有超时、空响应或上游错误。</p>
+              </article>
+              <article class="guide-card">
+                <span>第 3 步</span>
+                <strong>少量复杂场景</strong>
+                <p>只跑 2 个轻量场景，快速判断是否值得进入深度复测。</p>
+              </article>
+            </div>
+          </details>
 
           <form id="standard-eval-form" class="panel form-grid">
             <label>
@@ -261,7 +265,10 @@
               <strong>等待评测</strong>
               <p>完成标准评测后，这里会先给出能否继续使用、主要原因和下一步建议。</p>
             </div>
-            <pre id="standard-eval-result" class="result-box report-box">等待评测。</pre>
+            <details class="technical-details">
+              <summary>查看技术详情</summary>
+              <pre id="standard-eval-result" class="result-box report-box">等待评测。</pre>
+            </details>
             <div id="standard-next-actions" class="next-step-panel hidden"></div>
           </div>
         </section>
@@ -281,23 +288,26 @@
             </div>
           </div>
 
-          <div class="guide-grid compact-grid">
-            <article class="guide-card">
-              <span>Base URL</span>
-              <strong>填到域名或网关地址</strong>
-              <p>例如 <code>https://api.example.com</code>。不要把完整业务路径乱填到这里。</p>
-            </article>
-            <article class="guide-card">
-              <span>协议</span>
-              <strong>大多数中转站选 OpenAI Compatible</strong>
-              <p>Claude 原生接口才选 Claude Messages。选错协议常见表现是内容块缺失或空响应。</p>
-            </article>
-            <article class="guide-card">
-              <span>API Key</span>
-              <strong>只保存在本机安全存储</strong>
-              <p>导出的配置、报告和请求日志都不会带出真实 Key。</p>
-            </article>
-          </div>
+          <details class="helper-details">
+            <summary>查看填写说明</summary>
+            <div class="guide-grid compact-grid">
+              <article class="guide-card">
+                <span>Base URL</span>
+                <strong>填到域名或网关地址</strong>
+                <p>例如 <code>https://api.example.com</code>。不要把完整业务路径乱填到这里。</p>
+              </article>
+              <article class="guide-card">
+                <span>协议</span>
+                <strong>大多数中转站选 OpenAI Compatible</strong>
+                <p>Claude 原生接口才选 Claude Messages。选错协议常见表现是内容块缺失或空响应。</p>
+              </article>
+              <article class="guide-card">
+                <span>API Key</span>
+                <strong>只保存在本机安全存储</strong>
+                <p>导出的配置、报告和请求日志都不会带出真实 Key。</p>
+              </article>
+            </div>
+          </details>
 
           <form id="profile-form" class="panel form-grid">
             <div class="wide form-section-title">
@@ -406,18 +416,21 @@
             </div>
           </div>
 
-          <div class="guide-grid compact-grid">
-            <article class="guide-card">
-              <span>什么时候用</span>
-              <strong>每次新增或修改 API 后先跑它</strong>
-              <p>快速测试失败时，不要继续跑稳定性或场景测试。</p>
-            </article>
-            <article class="guide-card">
-              <span>怎么判断</span>
-              <strong>看是否成功、请求状态和错误类型</strong>
-              <p>如果失败，优先检查协议、Key、模型名和 Base URL。</p>
-            </article>
-          </div>
+          <details class="helper-details">
+            <summary>查看测试说明</summary>
+            <div class="guide-grid compact-grid">
+              <article class="guide-card">
+                <span>什么时候用</span>
+                <strong>每次新增或修改 API 后先跑它</strong>
+                <p>快速测试失败时，不要继续跑稳定性或场景测试。</p>
+              </article>
+              <article class="guide-card">
+                <span>怎么判断</span>
+                <strong>看是否成功、请求状态和错误类型</strong>
+                <p>如果失败，优先检查协议、Key、模型名和 Base URL。</p>
+              </article>
+            </div>
+          </details>
 
           <form id="quick-test-form" class="panel">
             <label>
@@ -453,23 +466,26 @@
             </div>
           </div>
 
-          <div class="guide-grid compact-grid">
-            <article class="guide-card">
-              <span>3 轮</span>
-              <strong>冒烟测试</strong>
-              <p>刚换 URL、Key、协议或模型名时使用，快速排除明显错误。</p>
-            </article>
-            <article class="guide-card">
-              <span>10 轮</span>
-              <strong>基础稳定性</strong>
-              <p>日常对比推荐使用，能看到成功率、平均耗时和慢请求。</p>
-            </article>
-            <article class="guide-card">
-              <span>30 轮</span>
-              <strong>候选复测</strong>
-              <p>更耗 token，适合准备推荐某个渠道前做确认。</p>
-            </article>
-          </div>
+          <details class="helper-details">
+            <summary>查看轮数说明</summary>
+            <div class="guide-grid compact-grid">
+              <article class="guide-card">
+                <span>3 轮</span>
+                <strong>冒烟测试</strong>
+                <p>刚换 URL、Key、协议或模型名时使用，快速排除明显错误。</p>
+              </article>
+              <article class="guide-card">
+                <span>10 轮</span>
+                <strong>基础稳定性</strong>
+                <p>日常对比推荐使用，能看到成功率、平均耗时和慢请求。</p>
+              </article>
+              <article class="guide-card">
+                <span>30 轮</span>
+                <strong>候选复测</strong>
+                <p>更耗 token，适合准备推荐某个渠道前做确认。</p>
+              </article>
+            </div>
+          </details>
 
           <form id="stability-test-form" class="panel form-grid">
             <label class="wide">
@@ -543,7 +559,10 @@
               <h3>Markdown 报告</h3>
               <button id="copy-stability-report" class="secondary" type="button">复制报告</button>
             </div>
-            <pre id="stability-report" class="result-box report-box">测试完成后会在这里生成详细报告。</pre>
+            <details class="technical-details">
+              <summary>查看 Markdown 技术报告</summary>
+              <pre id="stability-report" class="result-box report-box">测试完成后会在这里生成详细报告。</pre>
+            </details>
           </div>
 
           <div class="panel">
@@ -615,7 +634,10 @@
               <p class="muted">等待任务开始。</p>
               <button id="cancel-batch-task" class="secondary" type="button">取消当前任务</button>
             </div>
-            <pre id="batch-test-result" class="result-box report-box">适合同时对比多个模型或渠道。建议先用 3 轮快速筛查，再跑 10 轮正式对比。</pre>
+            <details class="technical-details">
+              <summary>查看批量测试详情</summary>
+              <pre id="batch-test-result" class="result-box report-box">适合同时对比多个模型或渠道。建议先用 3 轮快速筛查，再跑 10 轮正式对比。</pre>
+            </details>
           </div>
         </section>
 
@@ -628,23 +650,26 @@
             </div>
           </div>
 
-          <div class="guide-grid compact-grid">
-            <article class="guide-card">
-              <span>成本提醒</span>
-              <strong>复杂场景最耗额度</strong>
-              <p>第一次不要全量多模型多重复，先少量 API、少量场景试跑。</p>
-            </article>
-            <article class="guide-card">
-              <span>质量分说明</span>
-              <strong>当前是规则化快速筛查</strong>
-              <p>质量分可用来粗筛，正式结论还需要人工抽查输出内容。</p>
-            </article>
-            <article class="guide-card">
-              <span>适合场景</span>
-              <strong>最终候选模型复核</strong>
-              <p>当稳定性已经过关，再用复杂场景确认真实任务能力。</p>
-            </article>
-          </div>
+          <details class="helper-details">
+            <summary>查看场景测试说明</summary>
+            <div class="guide-grid compact-grid">
+              <article class="guide-card">
+                <span>成本提醒</span>
+                <strong>复杂场景最耗额度</strong>
+                <p>第一次不要全量多模型多重复，先少量 API、少量场景试跑。</p>
+              </article>
+              <article class="guide-card">
+                <span>质量分说明</span>
+                <strong>当前是规则化快速筛查</strong>
+                <p>质量分可用来粗筛，正式结论还需要人工抽查输出内容。</p>
+              </article>
+              <article class="guide-card">
+                <span>适合场景</span>
+                <strong>最终候选模型复核</strong>
+                <p>当稳定性已经过关，再用复杂场景确认真实任务能力。</p>
+              </article>
+            </div>
+          </details>
 
           <form id="scenario-test-form" class="panel form-grid">
             <label class="wide">
@@ -715,7 +740,10 @@
               <h3>场景测试报告</h3>
               <button id="copy-scenario-report" class="secondary" type="button">复制报告</button>
             </div>
-            <pre id="scenario-test-result" class="result-box report-box">等待测试。</pre>
+            <details class="technical-details">
+              <summary>查看场景测试技术报告</summary>
+              <pre id="scenario-test-result" class="result-box report-box">等待测试。</pre>
+            </details>
           </div>
         </section>
 
@@ -770,15 +798,15 @@
             <h3>最近测试报告</h3>
             <div id="test-run-list" class="table"></div>
           </div>
-          <div class="panel">
-            <h3>最近任务状态</h3>
+          <details class="panel collapsible-panel">
+            <summary>最近任务状态</summary>
             <p class="muted">用于判断上次测试是否完成、失败、取消或因程序关闭而中断。</p>
             <div id="task-event-list" class="table"></div>
-          </div>
-          <div class="panel">
-            <h3>最近请求记录</h3>
+          </details>
+          <details class="panel collapsible-panel">
+            <summary>最近请求记录</summary>
             <div id="request-list" class="table"></div>
-          </div>
+          </details>
         </section>
 
         <section class="page" id="handoff">

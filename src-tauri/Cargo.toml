@@ -2,7 +2,7 @@
 name = "nexusapi-evaluator"
 version = "0.1.0"
 description = "NexusAPI model and channel evaluator"
-authors = ["yl0711"]
+authors = ["NexusAPI Evaluator Contributors"]
 edition = "2021"
 
 [build-dependencies]

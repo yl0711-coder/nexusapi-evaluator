@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "NexusAPI Evaluator",
   "version": "0.1.0",
-  "identifier": "com.yl0711.nexusapi-evaluator",
+  "identifier": "com.nexusapi.evaluator",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://127.0.0.1:5179",
