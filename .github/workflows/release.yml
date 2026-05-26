@@ -115,7 +115,7 @@ jobs:
           cp -R "docs" "$out/docs"
           cp -R "dist" "$out/dist"
           cp -R "resources" "$out/resources"
-          cat > "$out/版本说明.txt" <<EOF
+          cat > "$out/README.txt" <<EOF
           NexusAPI Evaluator ${{ matrix.edition_cn }}
           Edition: ${{ matrix.edition_en }}
 
@@ -142,7 +142,7 @@ jobs:
 
           标准版：隐藏内容安全合规测试，适合普通测试人员使用。
           内部风控版：显示内容安全合规测试，只适合负责人或受训测试人员使用。
-          "@ | Set-Content -Path "$out/版本说明.txt" -Encoding UTF8
+          "@ | Set-Content -Path "$out/README.txt" -Encoding UTF8
           Compress-Archive -Path "$out" -DestinationPath "release/${{ matrix.artifact }}.zip" -Force
 
       - name: Upload package artifact
