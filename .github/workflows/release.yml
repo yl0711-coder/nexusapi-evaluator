@@ -56,12 +56,13 @@ jobs:
           node-version: "24"
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.2.2
+        shell: bash
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.2.2 --activate
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Show Rust version
+        run: rustc --version && cargo --version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
