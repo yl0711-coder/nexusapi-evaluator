@@ -17,7 +17,7 @@ import {
   LOCAL_SECRET_FILE,
   LOCAL_VAULT_FILE,
 } from "./paths.mjs";
-import { safeJson } from "./utils.mjs";
+import { readTextTail, safeJson } from "./utils.mjs";
 
 export async function ensureDataDir() {
   await mkdir(DATA_DIR, { recursive: true });
@@ -128,7 +128,7 @@ async function readJsonLines(file, limit) {
   if (!existsSync(file)) {
     return [];
   }
-  const raw = await readFile(file, "utf8");
+  const raw = await readTextTail(file);
   return raw
     .trim()
     .split("\n")

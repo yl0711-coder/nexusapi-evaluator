@@ -30,7 +30,8 @@ The current version is a local desktop MVP with a Tauri shell and a Node.js loca
 - Show a plain-language conclusion and next-step buttons after standard evaluation.
 - Show non-technical user-facing errors in the UI while writing technical details to local `NexusAPI数据/日志/errors.jsonl`.
 - Provide save-and-test profile flow, a plain report conclusion, and one-click support bundle export for non-technical operators.
-- Keep reports and logs local. API keys are never written into request logs or reports.
+- Keep reports and logs local. API keys are never written into request logs or reports, and common sensitive fields are redacted.
+- Protect long-running tests by trimming JSONL logs, limiting single upstream response size, and keeping only task summaries plus report paths in memory after completion.
 
 ## Run Local Web UI
 
@@ -59,8 +60,6 @@ pnpm dev:desktop:risk
 ```
 
 The standard edition hides content-safety scenarios. The internal risk-control edition shows them.
-
-This single command starts the temporary local API service on `127.0.0.1:5180`, then opens the Tauri desktop window.
 
 The launcher encapsulates local communication ports. Normal operators do not need to understand or configure ports.
 
@@ -145,11 +144,10 @@ Reports, request logs, exported profiles, and generated delivery templates do no
 
 This is a private proprietary project. See [LICENSE](LICENSE).
 
-## Planned Desktop Stack
+## Future Technical Direction
 
-- Tauri 2
-- Vue 3 + TypeScript
-- Rust backend
-- SQLite
-- System secure key storage
-- Built-in local proxy
+- Gradually migrate the temporary Node local service into Rust/Tauri modules.
+- Add SQLite for test records and report indexes.
+- Improve cross-platform system-level secure key storage.
+- Add more automated acceptance checks for packaged desktop apps.
+- Add a built-in local proxy and AI judge scoring if needed.

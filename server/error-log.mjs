@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
-import { appendJsonLine, summarizeText } from "./utils.mjs";
+import { appendJsonLine, redactSensitiveText, summarizeText } from "./utils.mjs";
 
 const SENSITIVE_KEY_PATTERN = /(api[_-]?key|authorization|password|secret|token|x-api-key)/i;
-const SECRET_VALUE_PATTERN = /\b(sk-[A-Za-z0-9_-]{8,}|Bearer\s+[A-Za-z0-9._-]{12,})\b/g;
+const SECRET_VALUE_PATTERN = /\b(sk-[A-Za-z0-9_-]{8,}(?:-[A-Za-z0-9_-]+)*|Bearer\s+[A-Za-z0-9._-]{12,})\b/g;
 
 export function buildUserErrorMessage(errorId) {
   return `工具遇到一个内部问题。请重新操作一次；如果仍然失败，把错误编号 ${errorId} 发给负责人。`;
@@ -65,7 +65,7 @@ function sanitizeContext(value, depth = 0) {
 }
 
 function redactText(value) {
-  return String(value || "").replace(SECRET_VALUE_PATTERN, "[redacted-secret]");
+  return redactSensitiveText(String(value || "").replace(SECRET_VALUE_PATTERN, "[redacted-secret]"));
 }
 
 function compactTimestamp() {

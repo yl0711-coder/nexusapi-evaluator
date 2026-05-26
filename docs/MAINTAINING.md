@@ -22,6 +22,7 @@
 | `server/scenarios/*.mjs` | 分类维护内置测试场景，内容安全场景独立放在 `safety.mjs` |
 | `server/data-store.mjs` | `NexusAPI数据/` 初始化、最近请求/报告/任务事件读取 |
 | `server/error-log.mjs` | 技术错误日志、错误编号、敏感信息脱敏和用户友好错误文案 |
+| `server/http-request.mjs` | 请求体读取、JSON 格式错误和请求体大小限制 |
 | `server/paths.mjs` | 项目根目录、数据文件、报告目录等路径常量 |
 | `server/profile-store.mjs` | API 配置标准化、导入导出、脱敏、明文 Key 迁移 |
 | `server/protocols.mjs` | OpenAI/Claude 请求构造、响应文本提取、usage 提取、错误归类 |
@@ -31,11 +32,13 @@
 | `server/secret-store.mjs` | API Key 存储读取；macOS Keychain 优先，本地加密 vault 兜底 |
 | `server/summaries.mjs` | 稳定性和场景测试结果汇总、P95、成功率、质量分聚合 |
 | `server/support-bundle.mjs` | 一键导出问题包，聚合脱敏配置摘要、最近请求、任务、报告和错误 |
+| `server/static-paths.mjs` | 静态文件和文档文件的安全路径解析，防止目录穿越 |
 | `server/task-manager.mjs` | 远程任务创建、取消、进度、任务事件和任务公开视图 |
 | `server/test-runner.mjs` | 快速测试、稳定性测试、批量测试、场景测试和上游请求执行 |
 | `server/utils.mjs` | JSON、文本摘要、统计、转义、HTTP JSON 响应等通用工具 |
 | `src/app.js` | 前端页面装配、页面切换、数据加载和模块编排入口 |
 | `src/api-client.js` | 前端 API 请求封装、远程任务轮询、取消任务 |
+| `src/client-error-reporter.js` | 捕获前端未处理异常，并在提交本地错误日志前脱敏 |
 | `src/client-utils.js` | 前端通用工具：Markdown 渲染、HTML 转义、下载、toast、日期格式 |
 | `src/clipboard.js` | 复制文本兼容封装 |
 | `src/cost-estimates.js` | 请求数、token 消耗和成本风险预估 |
@@ -174,6 +177,15 @@ server/task-manager.mjs
 - 运行中的历史任务在程序重启后应显示为 `interrupted`，提醒操作员重新测试。
 - 修改后至少跑 `tests/task-manager.test.mjs` 和全量 `pnpm test`。
 
+长时间运行保护：
+
+- 单次上游响应必须通过 `readBoundedResponseText` 读取，不能直接 `response.text()`。
+- 如果出现 `response_too_large`，优先按异常响应处理，不要为了“兼容大输出”直接放开上限。
+- 批量稳定性测试只能在汇总里保存子测试摘要和报告路径，不能把每个子测试的完整 `reportMarkdown` 嵌进去。
+- 任务完成后的内存状态只能保留摘要、报告路径和计数字段；完整报告只允许落到 `NexusAPI数据/报告/`。
+- JSONL 日志写入使用 `appendJsonLine`，读取最近记录使用 `readTextTail`；不要改成无限追加加整文件读取。
+- 请求日志里的 `rawError`、响应摘要和 Prompt 预览必须先脱敏再落盘。
+
 ### 3.5 调整前端展示逻辑
 
 页面事件和数据加载保留在：
@@ -206,8 +218,13 @@ src/formatters.js
 - 输出到页面的 HTML 必须经过 `escapeHtml` 或确定只来自固定模板。
 - 前端展示给用户的错误必须是非技术话术；堆栈、原始异常、内部接口细节只允许进入 `NexusAPI数据/日志/errors.jsonl`。
 - 新增可能抛错的后端入口时，要使用错误编号返回用户提示，并把技术细节写入错误日志。
+- 新增读取 JSON 请求体的后端入口必须复用 `server/http-request.mjs`，不要直接无限制读取请求体。
+- 新增静态文件或文档访问必须复用 `server/static-paths.mjs`，不要直接拼接路径或用 `startsWith` 判断目录边界。
 - 错误日志必须脱敏 API Key、Authorization、token、secret 等敏感字段。
 - 问题包只能导出脱敏摘要，不能包含完整 API Key、完整请求正文或大段原始响应。
+- 上游响应必须通过有大小限制的读取函数处理，避免异常大响应造成内存暴涨。
+- JSONL 日志写入会自动裁剪到最近尾部，历史记录读取也只读尾部，避免长时间测试后 UI 卡顿。
+- 任务完成后只在内存中保留摘要和报告文件路径，不保留完整 `reportMarkdown`。
 - 报告中心的“极简结论”面向非技术操作员，文案要保持推荐/观察/不推荐、原因、下一步三段式。
 - 修改交付模板后，至少跑 `tests/delivery-view.test.mjs`。
 - 修改首页工作流后，至少跑 `tests/workflow-guide.test.mjs`。

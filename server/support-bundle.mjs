@@ -1,4 +1,5 @@
 import os from "node:os";
+import { basename } from "node:path";
 
 export function buildSupportBundle({ profiles, requests, testRuns, tasks, errors }) {
   return {
@@ -53,8 +54,8 @@ export function buildSupportBundle({ profiles, requests, testRuns, tasks, errors
       successRateText: run.successRateText || "",
       p95TotalMs: run.p95TotalMs ?? null,
       recommendation: run.recommendation || null,
-      reportPath: run.reportPath || "",
-      reportHtmlPath: run.reportHtmlPath || "",
+      reportPath: safeFileName(run.reportPath),
+      reportHtmlPath: safeFileName(run.reportHtmlPath),
       startedAt: run.startedAt,
       endedAt: run.endedAt,
     })),
@@ -86,4 +87,8 @@ function safeHost(value) {
   } catch {
     return "";
   }
+}
+
+function safeFileName(value) {
+  return value ? basename(String(value)) : "";
 }

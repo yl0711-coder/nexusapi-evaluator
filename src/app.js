@@ -4,6 +4,7 @@ import {
   renderMarkdown,
   toast,
 } from "./client-utils.js";
+import { installClientErrorReporter } from "./client-error-reporter.js";
 import { copyText } from "./clipboard.js";
 import { api, cancelRemoteTask } from "./api-client.js";
 import { createConfirmDialog } from "./confirm-dialog.js";
@@ -49,6 +50,8 @@ import {
   loadProjectInfo,
   saveProjectInfo,
 } from "./project-info.js";
+
+installClientErrorReporter();
 
 const state = {
   profiles: [],

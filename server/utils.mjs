@@ -1,4 +1,13 @@
-import { appendFile } from "node:fs/promises";
+import { appendFile, open, readFile, stat, writeFile } from "node:fs/promises";
+
+export const DEFAULT_JSONL_MAX_BYTES = 8 * 1024 * 1024;
+export const DEFAULT_JSONL_TAIL_BYTES = 4 * 1024 * 1024;
+
+const SECRET_VALUE_PATTERNS = [
+  /\bsk-[A-Za-z0-9_-]{8,}(?:-[A-Za-z0-9_-]+)*\b/g,
+  /\bBearer\s+[A-Za-z0-9._-]{12,}\b/g,
+  /\b(api[_-]?key|authorization|password|secret|token|x-api-key)\s*[:=]\s*["']?[^"',\s}]{8,}/gi,
+];
 
 export function safeJson(raw) {
   try {
@@ -18,14 +27,53 @@ export function parseLooseJson(text) {
 }
 
 export function summarizeText(text) {
-  return String(text || "")
+  return redactSensitiveText(text)
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 500);
 }
 
-export async function appendJsonLine(file, value) {
+export function redactSensitiveText(text) {
+  return SECRET_VALUE_PATTERNS.reduce(
+    (value, pattern) => value.replace(pattern, "[redacted-secret]"),
+    String(text || ""),
+  );
+}
+
+export async function appendJsonLine(file, value, { maxBytes = DEFAULT_JSONL_MAX_BYTES, tailBytes = DEFAULT_JSONL_TAIL_BYTES } = {}) {
   await appendFile(file, `${JSON.stringify(value)}\n`, "utf8");
+  await trimJsonLinesFile(file, { maxBytes, tailBytes });
+}
+
+export async function readTextTail(file, maxBytes = DEFAULT_JSONL_TAIL_BYTES) {
+  const info = await stat(file);
+  if (info.size <= maxBytes) {
+    return readFile(file, "utf8");
+  }
+
+  const handle = await open(file, "r");
+  try {
+    const buffer = Buffer.alloc(maxBytes);
+    await handle.read(buffer, 0, maxBytes, info.size - maxBytes);
+    const raw = buffer.toString("utf8");
+    const firstLineBreak = raw.indexOf("\n");
+    return firstLineBreak >= 0 ? raw.slice(firstLineBreak + 1) : raw;
+  } finally {
+    await handle.close();
+  }
+}
+
+async function trimJsonLinesFile(file, { maxBytes, tailBytes }) {
+  try {
+    const info = await stat(file);
+    if (info.size <= maxBytes) {
+      return;
+    }
+    const tail = await readTextTail(file, tailBytes);
+    await writeFile(file, tail, "utf8");
+  } catch {
+    // Log rotation is best-effort. Never fail a test because cleanup failed.
+  }
 }
 
 export function clampNumber(value, min, max, fallback) {

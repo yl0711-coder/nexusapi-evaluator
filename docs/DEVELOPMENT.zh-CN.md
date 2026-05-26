@@ -31,15 +31,16 @@
 15. API 配置模板、场景包、错误处理建议和标准评测下一步建议。
 16. 本次测试信息保存，并自动写入交付模板。
 17. 保存 API 配置前的基础检查器，以及标准评测后的人话结论和下一步按钮。
+18. GitHub Actions 免安装桌面包，区分普通版和内部风控版。
+19. 本地 HTTP 安全边界、请求体限制、静态路径保护、日志裁剪和上游响应大小保护。
 
 暂缓项：
 
-1. Tauri 桌面安装包。
-2. Rust 本地代理。
-3. SQLite。
-4. 更正式的安全密钥存储。
-5. AI 裁判评分。
-6. 更完整的 HTML 报告导出能力。
+1. Rust 本地代理。
+2. SQLite。
+3. 更正式的跨平台系统级安全密钥存储。
+4. AI 裁判评分。
+5. 更完整的打包后桌面应用自动化验收。
 
 ## 本地命令
 
@@ -156,11 +157,22 @@ API_PORT=17891 PORT_MODE=manual node scripts/dev-desktop.mjs
 - `NexusAPI数据/报告/*.md`：给非技术测试人员或外包操作人员使用的 Markdown 报告。
 - `NexusAPI数据/报告/*.html`：更方便阅读和分享的 HTML 报告。
 
+长时间测试的稳定性约束：
+
+- JSONL 日志会自动保留最近尾部内容，避免连续测试几小时后日志无限增长。
+- 请求记录、错误记录和任务记录页面只读取日志尾部，不会为了展示最近记录而整文件读入内存。
+- 单次上游响应有大小上限。超过保护限制会记录为 `response_too_large`，这是为了防止异常错误页、网关回包或失控输出拖垮本地工具。
+- 长任务完成后，内存里只保留摘要和报告路径，完整 Markdown/HTML 报告写入 `NexusAPI数据/报告/`。
+- 批量稳定性测试不会在汇总结果里嵌套保存每个子测试的完整报告，只保留子测试报告路径。
+- 请求日志和报告会对常见 Key、Bearer Token、Authorization、password、secret 等内容做脱敏，但维护人员仍应避免把真实 Key 写进 Prompt 或模型名称。
+
 ## 当前模块边界
 
 后端：
 
 - `server.mjs` 只负责 HTTP 路由和静态文件服务。
+- `server/http-request.mjs` 负责请求体读取、JSON 格式错误和请求体大小限制。
+- `server/static-paths.mjs` 负责静态文件和文档文件的安全路径解析，避免目录穿越。
 - `server/error-log.mjs` 负责错误编号、技术错误日志、敏感信息脱敏和用户友好错误文案。
 - `server/test-runner.mjs` 负责快速测试、稳定性测试、批量测试、场景测试和上游 API 请求。
 - `server/scenario-evaluator.mjs` 负责场景输出的规则化评分。
@@ -174,6 +186,7 @@ API_PORT=17891 PORT_MODE=manual node scripts/dev-desktop.mjs
 前端：
 
 - `src/app.js` 负责页面装配、页面切换、数据加载和模块编排。
+- `src/client-error-reporter.js` 负责捕获前端未处理异常，并在写入本地日志前脱敏。
 - `src/*-controller.js` 负责具体页面或流程的表单提交和业务编排。
 - `src/*-view.js` 负责可复用展示模板。
 - `src/delivery-view.js` 负责报告洞察卡片、模型/渠道排行榜和交付模板。
@@ -196,6 +209,12 @@ API_PORT=17891 PORT_MODE=manual node scripts/dev-desktop.mjs
 - 配置检查器只做“保存前明显风险拦截”，不能替代真实快速测试；后续新增规则要避免误伤合法中转路径。
 - 标准评测下一步按钮只是操作引导，不能偷偷启动高成本测试，必须让用户在目标页面再次确认。
 - 涉及 API Key、Prompt、响应正文的日志改动，必须确认不会泄露敏感信息。
+- 新增本地 HTTP 接口必须使用带大小限制的 JSON 读取，并对错误输入返回小白可理解的提示。
+- 静态文件或文档文件访问必须走 `server/static-paths.mjs`，不要直接用 `startsWith` 做路径安全判断。
+- 上游 API 响应必须带大小限制读取；测试执行代码里不要直接调用 `response.text()`。
+- JSONL 日志会保留尾部并控制大小，最近记录读取只读尾部；不要改回整文件读取。
+- 长任务状态只保留摘要和报告路径，完整 Markdown 报告只写入 `NexusAPI数据/报告/`，不要长期放在内存里。
+- 批量测试内部结果不要嵌套完整子报告，避免多 API 长跑时内存和报告体积膨胀。
 
 ## 操作员测试流程
 

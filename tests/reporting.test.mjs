@@ -67,12 +67,30 @@ test("stability reports contain useful conclusions and no API key", async () => 
     assert.match(markdown, /单轮明细/);
     assert.match(markdown, /认证失败/);
     assert.match(markdown, /报告不包含 API Key/);
-    assert.equal(markdown.includes("sk-real-secret"), false);
+    assert.equal(markdown.includes("sk-should-not-be-in-report"), false);
+    assert.match(markdown, /\[redacted-secret\]/);
 
     const files = await reporting.saveReportFiles("run-test", markdown, "测试报告");
     const html = await readFile(files.htmlPath, "utf8");
     assert.match(html, /<!doctype html>/);
     assert.match(html, /NexusAPI Evaluator 本地生成/);
+  } finally {
+    delete process.env.NEXUSAPI_DATA_DIR;
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("report filenames are sanitized before writing to report directory", async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), "nexusapi-report-filename-test-"));
+  process.env.NEXUSAPI_DATA_DIR = dataDir;
+
+  try {
+    const reporting = await import(`../server/reporting.mjs?case=filename-${Date.now()}`);
+    const files = await reporting.saveReportFiles("../bad/name", "# Test", "测试报告");
+
+    assert.equal(files.markdownPath.includes(".."), false);
+    assert.match(files.markdownPath, /bad-name\.md$/);
+    assert.match(await readFile(files.markdownPath, "utf8"), /# Test/);
   } finally {
     delete process.env.NEXUSAPI_DATA_DIR;
     await rm(dataDir, { recursive: true, force: true });

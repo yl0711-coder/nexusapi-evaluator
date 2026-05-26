@@ -44,6 +44,11 @@ export const ERROR_DIAGNOSTICS = {
     cause: "上游返回了非预期 JSON、错误页面、代理报错文本或协议不匹配结果。",
     action: "检查 Base URL 是否只填到域名或网关根路径；确认协议和模型接口是否匹配。",
   },
+  response_too_large: {
+    title: "响应过大",
+    cause: "上游返回内容超过工具的单次响应保护限制，可能是网关错误页、异常流量或模型输出失控。",
+    action: "先用短 Prompt 快速复测；如果仍然出现，检查上游日志、模型最大输出和网关返回内容。",
+  },
   unknown_error: {
     title: "未知错误",
     cause: "当前工具无法明确归类的失败。",

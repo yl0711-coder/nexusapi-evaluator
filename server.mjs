@@ -1,10 +1,12 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
+import { extname } from "node:path";
 import { MIME_TYPES, TEST_SCENARIOS } from "./server/constants.mjs";
-import { ERROR_LOG_FILE, ROOT, STATIC_ROOT, TASK_EVENTS_FILE } from "./server/paths.mjs";
+import { DOCS_ROOT, ERROR_LOG_FILE, STATIC_ROOT, TASK_EVENTS_FILE } from "./server/paths.mjs";
 import { ensureDataDir, readRecentErrors, readRecentRequests, readRecentTasks, readRecentTestRuns } from "./server/data-store.mjs";
 import { buildUserErrorMessage, logTechnicalError } from "./server/error-log.mjs";
+import { isAllowedBrowserOrigin, staticSecurityHeaders } from "./server/http-security.mjs";
+import { HttpRequestError, readJson } from "./server/http-request.mjs";
 import {
   exportProfile,
   loadProfiles,
@@ -26,6 +28,7 @@ import {
   runScenarioTest,
   runStabilityTest,
 } from "./server/test-runner.mjs";
+import { getRawRequestPathname, resolveRequestPathInside } from "./server/static-paths.mjs";
 import { hasProxyEnv, requiredString, safeJson, sendJson } from "./server/utils.mjs";
 
 const PORT = Number(process.env.API_PORT || process.env.PORT || 5180);
@@ -46,12 +49,27 @@ await ensureDataDir();
 createServer(async (req, res) => {
   try {
     if (req.url?.startsWith("/api/")) {
+      if (!isAllowedBrowserOrigin(req.headers.origin)) {
+        sendJson(res, 403, {
+          error: "forbidden_origin",
+          userMessage: "请求来源不被允许。请从本工具窗口内操作。",
+        });
+        return;
+      }
       await handleApi(req, res);
       return;
     }
 
     await serveStatic(req, res);
   } catch (error) {
+    if (error instanceof HttpRequestError) {
+      sendJson(res, error.status, {
+        error: error.code,
+        userMessage: error.userMessage,
+      });
+      return;
+    }
+
     const errorId = await logErrorSafely({
       source: "server",
       error,
@@ -72,6 +90,11 @@ createServer(async (req, res) => {
 
 async function handleApi(req, res) {
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
+
+  if (req.method === "OPTIONS") {
+    sendJson(res, 204, { ok: true });
+    return;
+  }
 
   if (req.method === "GET" && url.pathname === "/api/health") {
     sendJson(res, 200, {
@@ -278,19 +301,11 @@ async function logErrorSafely(entry) {
   }
 }
 
-async function readJson(req) {
-  const chunks = [];
-  for await (const chunk of req) {
-    chunks.push(chunk);
-  }
-  return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
-}
-
 async function serveStatic(req, res) {
-  const url = new URL(req.url || "/", `http://127.0.0.1:${PORT}`);
-  const requestedPath = url.pathname === "/" ? "/index.html" : url.pathname;
-  const staticPath = normalize(join(STATIC_ROOT, requestedPath));
-  if (!staticPath.startsWith(STATIC_ROOT)) {
+  const rawPathname = getRawRequestPathname(req.url);
+  const requestedPath = rawPathname === "/" ? "/index.html" : rawPathname;
+  const staticPath = resolveRequestPathInside(STATIC_ROOT, requestedPath);
+  if (!staticPath) {
     res.writeHead(403);
     res.end("Forbidden");
     return;
@@ -300,6 +315,7 @@ async function serveStatic(req, res) {
     const content = await readFile(staticPath);
     res.writeHead(200, {
       "content-type": MIME_TYPES[extname(staticPath)] || "application/octet-stream",
+      ...staticSecurityHeaders(staticPath),
     });
     res.end(content);
     return;
@@ -311,8 +327,8 @@ async function serveStatic(req, res) {
     }
   }
 
-  const docsPath = normalize(join(ROOT, requestedPath));
-  if (!docsPath.startsWith(ROOT)) {
+  const docsPath = resolveRequestPathInside(DOCS_ROOT, requestedPath.replace(/^\/docs\/?/, "/"));
+  if (!docsPath) {
     res.writeHead(403);
     res.end("Forbidden");
     return;
@@ -322,6 +338,7 @@ async function serveStatic(req, res) {
     const content = await readFile(docsPath);
     res.writeHead(200, {
       "content-type": MIME_TYPES[extname(docsPath)] || "application/octet-stream",
+      ...staticSecurityHeaders(docsPath),
     });
     res.end(content);
   } catch {

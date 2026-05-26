@@ -27,6 +27,7 @@ test("task manager records completed tasks without leaking full payloads", async
         successRateText: "100%",
         p95TotalMs: 120,
         reportPath: "/tmp/report.md",
+        reportMarkdown: "# very long report",
       }),
       runBatchStabilityTest: async () => ({}),
       runScenarioTest: async () => ({}),
@@ -42,6 +43,7 @@ test("task manager records completed tasks without leaking full payloads", async
 
     assert.equal(task.progress, 100);
     assert.equal(task.result.runId, "run-ok");
+    assert.equal(task.result.reportMarkdown, "报告内容已写入本地报告文件，请在报告中心查看。");
 
     const raw = await readFile(taskEventsFile, "utf8");
     assert.match(raw, /"event":"started"/);

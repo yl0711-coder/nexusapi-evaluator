@@ -32,6 +32,8 @@ import {
   summarizeText,
 } from "./utils.mjs";
 
+const MAX_UPSTREAM_RESPONSE_BYTES = 2 * 1024 * 1024;
+
 // Owns all real upstream evaluation work. server.mjs should route requests here
 // instead of carrying test execution details in the HTTP entrypoint.
 export async function runQuickTest(profileId, prompt) {
@@ -166,7 +168,7 @@ export async function runBatchStabilityTest(body, taskContext = {}) {
     );
     for (const result of settled) {
       if (result.status === "fulfilled") {
-        results.push(result.value);
+        results.push(stripHeavyRunResult(result.value));
       } else {
         results.push({
           success: false,
@@ -410,8 +412,26 @@ async function executeTestRequest(profile, prompt, options = {}) {
     });
     firstByteMs = Math.round(performance.now() - started);
     statusCode = response.status;
-    const raw = await response.text();
+    const rawResult = await readBoundedResponseText(response, MAX_UPSTREAM_RESPONSE_BYTES, controller);
     totalMs = Math.round(performance.now() - started);
+    if (rawResult.truncated) {
+      rawError = `上游响应超过 ${MAX_UPSTREAM_RESPONSE_BYTES} bytes，已停止读取。`;
+      normalizedError = "response_too_large";
+      return await finalizeTestRecord({
+        options,
+        profile,
+        requestId,
+        startedAt,
+        firstByteMs,
+        totalMs,
+        statusCode,
+        responseText,
+        usage,
+        rawError,
+        normalizedError,
+      });
+    }
+    const raw = rawResult.text;
 
     if (!response.ok) {
       rawError = summarizeText(raw);
@@ -446,6 +466,59 @@ async function executeTestRequest(profile, prompt, options = {}) {
     rawError,
     normalizedError,
   });
+}
+
+export async function readBoundedResponseText(response, maxBytes, controller) {
+  const contentLength = Number(response.headers.get("content-length") || 0);
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    controller.abort();
+    return { text: "", truncated: true };
+  }
+
+  if (!response.body?.getReader) {
+    if (!contentLength) {
+      controller.abort();
+      return { text: "", truncated: true };
+    }
+    const text = await response.text();
+    return { text: text.slice(0, maxBytes), truncated: Buffer.byteLength(text, "utf8") > maxBytes };
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const chunks = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        controller.abort();
+        return { text: chunks.join(""), truncated: true };
+      }
+      chunks.push(decoder.decode(value, { stream: true }));
+    }
+    chunks.push(decoder.decode());
+    return { text: chunks.join(""), truncated: false };
+  } finally {
+    reader.releaseLock?.();
+  }
+}
+
+export function stripHeavyRunResult(result) {
+  if (!result || typeof result !== "object") {
+    return result;
+  }
+  const { reportMarkdown, records, ...safeResult } = result;
+  return {
+    ...safeResult,
+    recordCount: Array.isArray(records) ? records.length : undefined,
+  };
 }
 
 async function finalizeTestRecord({
@@ -483,7 +556,7 @@ async function finalizeTestRecord({
     outputChars: responseText.length,
     responseSummary: summarizeText(responseText),
     responseText,
-    rawError,
+    rawError: summarizeText(rawError),
   };
 
   if (options.writeLog !== false) {

@@ -807,6 +807,7 @@ P95 表示大部分请求里偏慢的那一批耗时。
 | `empty_response` | HTTP 成功但没有内容 | 检查协议转换或模型响应格式 |
 | `content_block_not_found` | 内容块缺失，常见于 Claude/OpenAI 协议转换不完整 | 检查协议选择、中转转换日志和上游返回结构 |
 | `invalid_response` | 响应格式异常、错误页面或协议不匹配 | 检查 Base URL、协议类型和模型接口 |
+| `response_too_large` | 上游返回内容过大，工具已停止读取 | 用短 Prompt 复测，检查最大输出、网关错误页或上游异常返回 |
 | `unknown_error` | 工具无法明确归类 | 查看单轮明细和平台 Request ID |
 
 处理优先级：

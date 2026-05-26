@@ -61,12 +61,13 @@ export function createTaskManager({
         task.message = "任务已取消。";
         await appendTaskEvent(taskEventsFile, task, "cancelled");
       } else {
+        const publicResult = summarizePublicTaskResult(result);
         task.status = "completed";
         task.progress = 100;
         task.completedUnits = task.totalUnits || task.completedUnits;
         task.message = "任务已完成。";
-        task.result = result;
-        await appendTaskEvent(taskEventsFile, task, "completed", { result: summarizeTaskResult(result) });
+        task.result = publicResult;
+        await appendTaskEvent(taskEventsFile, task, "completed", { result: summarizeTaskResult(publicResult) });
       }
     } catch (error) {
       if (task.cancelRequested || error?.name === "TaskCancelledError") {
@@ -154,6 +155,19 @@ export function publicTask(task) {
     result: task.result,
     error: task.error,
     errorId: task.errorId || "",
+  };
+}
+
+function summarizePublicTaskResult(result) {
+  if (!result || typeof result !== "object") {
+    return result;
+  }
+  const { reportMarkdown, results, records, ...safeResult } = result;
+  return {
+    ...safeResult,
+    reportMarkdown: reportMarkdown ? "报告内容已写入本地报告文件，请在报告中心查看。" : "",
+    resultCount: Array.isArray(results) ? results.length : undefined,
+    recordCount: Array.isArray(records) ? records.length : undefined,
   };
 }
 
@@ -252,8 +266,8 @@ export function updateTaskProgress(taskContext, completedUnits, totalUnits, mess
 
 function summarizeTaskPrompt(prompt) {
   // Task events are operational logs. They may include prompt previews, but
-  // they must never expose obvious API key patterns.
-  return summarizeText(String(prompt)).replace(/\b(sk-[A-Za-z0-9_-]{8,})\b/g, "[redacted-key]");
+  // summarizeText always redacts obvious secrets before writing them.
+  return summarizeText(String(prompt));
 }
 
 export function assertTaskNotCancelled(taskContext) {

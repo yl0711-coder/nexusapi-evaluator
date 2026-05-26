@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { ERROR_DIAGNOSTICS } from "./diagnostics.mjs";
 import { REPORTS_DIR } from "./paths.mjs";
 import { renderReportHtml } from "./report-html.mjs";
-import { escapeMarkdownTable, formatPercent } from "./utils.mjs";
+import { escapeMarkdownTable, formatPercent, redactSensitiveText } from "./utils.mjs";
 
 export function buildScenarioRecommendation(successRate, avgQualityScore, p95TotalMs, errorCounts = {}) {
   if (successRate >= 0.95 && avgQualityScore >= 80 && (!p95TotalMs || p95TotalMs <= 45000)) {
@@ -243,7 +243,7 @@ export function formatStabilityReport(summary, records, options = {}) {
   });
   const requestLines = records.map((record, index) => {
     const status = record.success ? "成功" : `失败 / ${record.normalizedError || "unknown_error"}`;
-    return `| ${index + 1} | ${status} | ${record.statusCode ?? "-"} | ${record.firstByteMs ?? "-"} | ${record.totalMs ?? "-"} | ${record.outputChars ?? 0} | ${record.inputTokens ?? "-"} | ${record.outputTokens ?? "-"} | ${escapeMarkdownTable(record.responseSummary || record.rawError || "-")} |`;
+    return `| ${index + 1} | ${status} | ${record.statusCode ?? "-"} | ${record.firstByteMs ?? "-"} | ${record.totalMs ?? "-"} | ${record.outputChars ?? 0} | ${record.inputTokens ?? "-"} | ${record.outputTokens ?? "-"} | ${escapeMarkdownTable(redactSensitiveText(record.responseSummary || record.rawError || "-"))} |`;
   });
   const stabilityInsights = buildStabilityInsights(summary);
   const aiAnalysisSection = formatAiAnalysisSection(options.aiAnalysis);
@@ -313,7 +313,7 @@ export function formatStabilityReport(summary, records, options = {}) {
     "## 8. 测试 Prompt 摘要",
     "",
     "```text",
-    summary.promptPreview || "-",
+    redactSensitiveText(summary.promptPreview || "-"),
     "```",
     "",
     "## 9. 单轮明细",
@@ -431,11 +431,21 @@ export function formatBatchReport(summary, options = {}) {
 
 export async function saveReportFiles(baseName, markdown, title) {
   await mkdir(REPORTS_DIR, { recursive: true });
-  const markdownPath = join(REPORTS_DIR, `${baseName}.md`);
-  const htmlPath = join(REPORTS_DIR, `${baseName}.html`);
+  const safeBaseName = sanitizeReportBaseName(baseName);
+  const markdownPath = join(REPORTS_DIR, `${safeBaseName}.md`);
+  const htmlPath = join(REPORTS_DIR, `${safeBaseName}.html`);
   await writeFile(markdownPath, markdown, "utf8");
   await writeFile(htmlPath, renderReportHtml(markdown, title), "utf8");
   return { markdownPath, htmlPath };
+}
+
+export function sanitizeReportBaseName(baseName) {
+  const safeName = String(baseName || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^\.+/, "")
+    .slice(0, 120);
+  return safeName || "report";
 }
 
 function getMainError(errorCounts) {

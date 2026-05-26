@@ -18,7 +18,15 @@ test("support bundle exports useful diagnostics without API keys", () => {
       },
     ],
     requests: [{ id: "r1", success: false, normalizedError: "timeout", rawError: "secret raw detail" }],
-    testRuns: [{ runId: "run1", type: "stability", successRateText: "90%", reportPath: "/tmp/report.md" }],
+    testRuns: [
+      {
+        runId: "run1",
+        type: "stability",
+        successRateText: "90%",
+        reportPath: "/Users/demo/private/report.md",
+        reportHtmlPath: "/Users/demo/private/report.html",
+      },
+    ],
     tasks: [{ taskId: "t1", status: "failed", errorId: "err-test", message: "用户提示" }],
     errors: [{ id: "err-test", source: "server", message: "redacted detail" }],
   });
@@ -27,6 +35,9 @@ test("support bundle exports useful diagnostics without API keys", () => {
   assert.equal(bundle.summary.latestErrorId, "err-test");
   assert.equal(bundle.profiles[0].baseUrlHost, "api.example.com");
   assert.equal(bundle.profiles[0].hasKey, true);
+  assert.equal(bundle.recentTestRuns[0].reportPath, "report.md");
+  assert.equal(bundle.recentTestRuns[0].reportHtmlPath, "report.html");
   assert.doesNotMatch(raw, /sk-should-not-export/);
   assert.doesNotMatch(raw, /secret raw detail/);
+  assert.doesNotMatch(raw, /\/Users\/demo\/private/);
 });

@@ -33,15 +33,16 @@ Implemented in this stage:
 15. API profile templates, scenario packs, failure-handling advice, and standard-evaluation next-step advice.
 16. Per-batch test metadata stored locally and injected into handoff templates.
 17. Pre-save API profile validation plus plain-language conclusions and next-step buttons after standard evaluation.
+18. GitHub Actions no-install desktop packages for standard and internal risk-control editions.
+19. Local HTTP security boundaries, request size limits, static path protection, log trimming, and upstream response size protection.
 
 Deferred:
 
-1. Tauri desktop packaging.
-2. Rust local proxy.
-3. SQLite.
-4. Secure key storage.
-5. AI scoring.
-6. HTML report export.
+1. Rust local proxy.
+2. SQLite.
+3. More formal cross-platform system-level secure key storage.
+4. AI judge scoring.
+5. More complete automated acceptance for packaged desktop apps.
 
 ## Local Commands
 
@@ -154,11 +155,22 @@ Current M1 implementation is still in the temporary Node service. It is usable f
 - `NexusAPI数据/报告/*.md`: generated Markdown reports for non-technical testers or external operators.
 - `NexusAPI数据/报告/*.html`: generated HTML reports for easier sharing and reading.
 
+Long-running stability constraints:
+
+- JSONL logs keep only recent tail content so multi-hour tests do not grow logs without bound.
+- Recent request, error, and task views read only log tails instead of loading whole files into memory.
+- Each upstream response has a size limit. Oversized responses are recorded as `response_too_large`; this protects the local tool from abnormal gateway pages, runaway output, or oversized upstream payloads.
+- Completed tasks keep summaries and report paths in memory only. Full Markdown/HTML reports are written to `NexusAPI数据/报告/`.
+- Batch stability summaries do not nest every child run's full Markdown report; they keep child report paths and summary fields.
+- Request logs and reports redact common API keys, Bearer tokens, Authorization values, passwords, and secrets. Maintainers should still avoid putting real keys into prompts or model names.
+
 ## Current Module Boundaries
 
 Backend:
 
 - `server.mjs` owns HTTP routing and static file serving only.
+- `server/http-request.mjs` owns request body parsing, JSON format errors, and request size limits.
+- `server/static-paths.mjs` owns safe static/document path resolution and traversal protection.
 - `server/error-log.mjs` owns error IDs, technical error logs, sensitive-field redaction, and user-facing error messages.
 - `server/test-runner.mjs` owns quick tests, stability tests, batch tests, scenario tests, and upstream API requests.
 - `server/task-manager.mjs` owns long-running task creation, cancellation, progress, events, and public task views.
@@ -171,6 +183,7 @@ Backend:
 Frontend:
 
 - `src/app.js` owns page assembly, navigation, data loading, and module orchestration.
+- `src/client-error-reporter.js` owns uncaught browser error capture and client-side log sanitization.
 - `src/*-controller.js` modules own concrete page/form workflows.
 - `src/*-view.js` modules own reusable presentation templates.
 - `src/delivery-view.js` owns report insight cards, model/channel ranking, and handoff templates.
@@ -190,6 +203,12 @@ Maintenance rules:
 - Profile validation is only a pre-save obvious-risk check; it does not replace the quick connectivity test. New rules must avoid blocking valid gateway prefixes.
 - Standard-evaluation next-step buttons should navigate and prefill only. They must not silently start high-cost tests.
 - Any log changes touching API keys, prompts, or response text must be checked for sensitive data leakage.
+- New local HTTP endpoints must use bounded JSON parsing and return non-technical user messages for bad input.
+- Static or document file serving must go through `server/static-paths.mjs`; do not use raw `startsWith` path checks.
+- Upstream API responses must be read with a size limit. Do not call `response.text()` directly in test execution code.
+- JSONL logs are bounded and recent-history readers load only the tail of each log file. Do not replace this with full-file reads.
+- Long-running task state must keep summaries and report paths only. Complete Markdown reports belong in `NexusAPI数据/报告/`, not in memory.
+- Batch test results must not nest full child reports; otherwise multi-profile long runs can inflate memory and report size.
 
 ## Operator Testing Flow
 
