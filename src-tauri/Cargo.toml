@@ -1,6 +1,6 @@
 [package]
 name = "nexusapi-evaluator"
-version = "0.1.0"
+version = "0.1.1"
 description = "NexusAPI model and channel evaluator"
 authors = ["NexusAPI Evaluator Contributors"]
 edition = "2021"

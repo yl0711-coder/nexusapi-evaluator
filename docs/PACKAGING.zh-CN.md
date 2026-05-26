@@ -41,7 +41,7 @@ workflow 文件在 `.github/workflows/release.yml`。
 
 Release 打包：
 
-1. 创建并推送 tag，例如 `v0.1.0`。
+1. 创建并推送 tag，例如 `v0.1.1`。
 2. GitHub Actions 会自动打包 macOS/Windows 的标准版和内部风控版。
 3. 生成的 zip 文件会上传到 GitHub Release。
 
