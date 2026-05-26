@@ -1,6 +1,6 @@
 use std::{
     env,
-    fs::{create_dir_all, OpenOptions},
+    fs::{create_dir_all, write, OpenOptions},
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
@@ -27,7 +27,9 @@ fn main() {
     let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![app_status])
         .setup(|app| {
-            launch_window(app)?;
+            if let Err(error) = launch_window(app) {
+                create_startup_error_window(app, &error.to_string())?;
+            }
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -122,6 +124,64 @@ fn create_main_window(app: &tauri::App, url: &str) -> Result<(), Box<dyn std::er
     Ok(())
 }
 
+fn create_startup_error_window(
+    app: &tauri::App,
+    message: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let error_file = env::temp_dir().join("nexusapi-evaluator-startup-error.html");
+    write(
+        &error_file,
+        format!(
+            r#"<!doctype html>
+<meta charset="utf-8">
+<title>NexusAPI Evaluator 启动失败</title>
+<style>
+body {{
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #0f172a;
+  color: #e5e7eb;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}}
+main {{
+  width: min(720px, calc(100vw - 48px));
+  padding: 32px;
+  border: 1px solid #334155;
+  border-radius: 20px;
+  background: #111827;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 0.35);
+}}
+h1 {{ margin: 0 0 16px; color: #f59e0b; }}
+p {{ line-height: 1.75; }}
+code {{
+  display: block;
+  padding: 16px;
+  overflow-wrap: anywhere;
+  border-radius: 12px;
+  background: #020617;
+  color: #fca5a5;
+}}
+</style>
+<main>
+  <h1>NexusAPI Evaluator 启动失败</h1>
+  <p>请确认你是从完整解压后的文件夹里打开应用，不要只移动单独的 .app 文件。</p>
+  <p>如果仍然失败，把下面这段错误信息发给负责人：</p>
+  <code>{}</code>
+</main>"#,
+            escape_html(message)
+        ),
+    )?;
+    let url = Url::from_file_path(error_file).map_err(|_| "无法生成启动错误页面。")?;
+    WebviewWindowBuilder::new(app, "startup-error", WebviewUrl::External(url))
+        .title("NexusAPI Evaluator 启动失败")
+        .inner_size(760.0, 520.0)
+        .min_inner_size(640.0, 420.0)
+        .build()?;
+    Ok(())
+}
+
 fn stop_managed_server(app: &tauri::AppHandle) {
     let Some(state) = app.try_state::<ManagedServer>() else {
         return;
@@ -170,7 +230,9 @@ fn health_check(port: u16) -> std::io::Result<bool> {
 
 fn find_resource_root(app: &tauri::App) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let mut candidates = Vec::new();
-    candidates.push(app.path().resource_dir()?);
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push(resource_dir);
+    }
 
     if let Ok(exe) = env::current_exe() {
         if let Some(dir) = exe.parent() {
@@ -187,6 +249,15 @@ fn find_resource_root(app: &tauri::App) -> Result<PathBuf, Box<dyn std::error::E
         }
     }
     Err("没有找到应用资源文件。请重新解压完整安装包后再打开。".into())
+}
+
+fn escape_html(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
 }
 
 fn app_bundle_parent(exe: &Path) -> Option<PathBuf> {
