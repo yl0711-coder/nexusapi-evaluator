@@ -41,7 +41,7 @@ Manual build:
 
 Release build:
 
-1. Create and push a tag, for example `v0.1.3`.
+1. Create and push a tag, for example `v0.1.4`.
 2. The workflow builds standard and internal risk-control packages for macOS and Windows.
 3. The generated zip files are uploaded to the GitHub Release.
 

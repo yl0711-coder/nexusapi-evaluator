@@ -40,6 +40,7 @@ test("task manager records completed tasks without leaking full payloads", async
     });
 
     await waitFor(() => task.status === "completed");
+    await waitForFileMatch(taskEventsFile, /"event":"completed"/);
 
     assert.equal(task.progress, 100);
     assert.equal(task.result.runId, "run-ok");
