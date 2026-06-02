@@ -4,6 +4,7 @@ import { ERROR_DIAGNOSTICS } from "./diagnostics.mjs";
 import { REPORTS_DIR } from "./paths.mjs";
 import { renderReportHtml } from "./report-html.mjs";
 import { escapeMarkdownTable, formatPercent, redactSensitiveText } from "./utils.mjs";
+import { compareProportions } from "./stats.mjs";
 
 export function buildScenarioRecommendation(successRate, avgQualityScore, p95TotalMs, errorCounts = {}) {
   if (successRate >= 0.95 && avgQualityScore >= 80 && (!p95TotalMs || p95TotalMs <= 45000)) {
@@ -458,10 +459,12 @@ export function formatStabilityReport(summary, records, options = {}) {
     conclusion,
     "",
     `- 成功率：${summary.successRateText} (${summary.successCount}/${summary.rounds})`,
+    `- 成功率 95% 置信区间：${summary.successRateCi?.ci95Text ?? "样本不足"}（Wilson，小样本安全）`,
     `- 平均首包：${summary.avgFirstByteMs || "-"} ms`,
     `- 平均总耗时：${summary.avgTotalMs || "-"} ms`,
     `- P50 总耗时：${summary.p50TotalMs ?? "-"} ms`,
     `- 慢请求参考 P95：${summary.p95TotalMs ?? "-"} ms`,
+    `- 尾部延迟 P99：${summary.p99TotalMs ?? "-"} ms`,
     `- 最快/最慢：${summary.minTotalMs ?? "-"} ms / ${summary.maxTotalMs ?? "-"} ms`,
     `- 平均输出字符：${summary.avgOutputChars}`,
     `- 输入 tokens 合计：${summary.inputTokens ?? "-"}（专业成本参考）`,
@@ -507,6 +510,8 @@ export function formatStabilityReport(summary, records, options = {}) {
     "- 总耗时表示用户等完整回答的时间，越低越好；如果业务是长文本或编程任务，可以接受更高耗时。",
     "- 首包时间用于观察上游连接和排队速度。",
     "- P95 是慢请求参考，用于观察尾部延迟，通常比平均值更能反映稳定性。",
+    "- P99 是更靠尾部的延迟，LLM 延迟重尾，最慢请求可能比中位数慢数倍，P99 更接近最差体验。",
+    "- 成功率附 95% 置信区间（Wilson 法，小样本安全）：样本越少区间越宽，应连同样本数一起看，不要只看比例点值。",
   ].join("\n");
 }
 
@@ -1001,13 +1006,30 @@ function buildBatchInsights(summary, rankedResults) {
   const watch = summary.results.filter((result) => !result.error && result.successRate >= 0.8 && result.successRate < 0.95);
   const risky = summary.results.filter((result) => result.error || result.successRate < 0.8);
   const best = rankedResults[0];
+  const runnerUp = rankedResults[1];
   const slow = summary.results.filter((result) => !result.error && Number(result.p95TotalMs) > 45000);
+
+  // 红线：渠道对比 CI 重叠 / 不显著时不下"A 优于 B"。
+  let significanceLine = null;
+  if (best && runnerUp) {
+    const cmp = compareProportions(
+      best.successCount,
+      best.rounds,
+      runnerUp.successCount,
+      runnerUp.rounds,
+      { labelA: best.profileName, labelB: runnerUp.profileName },
+    );
+    significanceLine = cmp.significant
+      ? `- 排名显著性：${best.profileName} 与 ${runnerUp.profileName} 成功率置信区间不重叠，${cmp.verdict}（统计上可区分）。`
+      : `- 排名显著性：${best.profileName} 与 ${runnerUp.profileName} 成功率置信区间重叠，差异不显著，当前样本不足以判定谁更优，建议增加轮数再比较。`;
+  }
 
   return [
     `- 候选数量：共测试 ${summary.profileCount} 个 API，其中 ${usable.length} 个达到推荐线，${watch.length} 个需要观察，${risky.length} 个风险较高。`,
     best
       ? `- 当前最优：${best.profileName}，成功率 ${best.successRateText}，P95 ${best.p95TotalMs ?? "-"} ms。`
       : "- 当前最优：没有可用候选。",
+    ...(significanceLine ? [significanceLine] : []),
     slow.length
       ? `- 慢请求：${slow.length} 个 API 的 P95 超过 45000 ms，不适合低延迟业务。`
       : "- 慢请求：未发现明显高 P95 候选。",

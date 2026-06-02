@@ -1,5 +1,6 @@
 import { maskScenario } from "./profile-store.mjs";
 import { aggregateUsage, estimateProfileRunEconomics } from "./costing.mjs";
+import { proportionReport } from "./stats.mjs";
 import {
   buildErrorDiagnostics,
   buildRecommendation,
@@ -41,10 +42,12 @@ export function buildStabilitySummary({ runId, profile, records, rounds, concurr
     failureCount: failedRecords.length,
     successRate,
     successRateText: formatPercent(successRate),
+    successRateCi: proportionReport(successRecords.length, records.length),
     avgFirstByteMs: Math.round(mean(firstByteTimes) || 0),
     avgTotalMs: Math.round(mean(totalTimes) || 0),
     p50TotalMs: percentile(totalTimes, 0.5),
     p95TotalMs,
+    p99TotalMs: percentile(totalTimes, 0.99),
     minTotalMs: totalTimes.length ? Math.min(...totalTimes) : null,
     maxTotalMs: totalTimes.length ? Math.max(...totalTimes) : null,
     avgOutputChars: Math.round(mean(outputChars) || 0),
@@ -104,8 +107,10 @@ export function buildScenarioProfileSummary(profile, records) {
     successCount: successRecords.length,
     successRate,
     successRateText: formatPercent(successRate),
+    successRateCi: proportionReport(successRecords.length, records.length),
     avgTotalMs: Math.round(mean(totalTimes) || 0),
     p95TotalMs: percentile(totalTimes, 0.95),
+    p99TotalMs: percentile(totalTimes, 0.99),
     avgQualityScore,
     inputTokens,
     outputTokens,
