@@ -175,7 +175,55 @@ test("extracts output text and usage from common response formats", () => {
   assert.deepEqual(extractUsage({ usage: { prompt_tokens: 12, completion_tokens: 7 } }), {
     inputTokens: 12,
     outputTokens: 7,
+    cacheCreationTokens: null,
+    cacheReadTokens: null,
+    reasoningTokens: null,
   });
+});
+
+test("extractUsage captures Anthropic cache fields", () => {
+  assert.deepEqual(
+    extractUsage({
+      usage: {
+        input_tokens: 100,
+        output_tokens: 50,
+        cache_creation_input_tokens: 30,
+        cache_read_input_tokens: 70,
+      },
+    }),
+    {
+      inputTokens: 100,
+      outputTokens: 50,
+      cacheCreationTokens: 30,
+      cacheReadTokens: 70,
+      reasoningTokens: null,
+    },
+  );
+});
+
+test("extractUsage captures OpenAI detail fields (cached + reasoning)", () => {
+  assert.deepEqual(
+    extractUsage({
+      usage: {
+        prompt_tokens: 200,
+        completion_tokens: 80,
+        prompt_tokens_details: { cached_tokens: 120 },
+        completion_tokens_details: { reasoning_tokens: 40 },
+      },
+    }),
+    {
+      inputTokens: 200,
+      outputTokens: 80,
+      cacheCreationTokens: null,
+      cacheReadTokens: 120,
+      reasoningTokens: 40,
+    },
+  );
+});
+
+test("extractUsage returns null when usage is absent", () => {
+  assert.equal(extractUsage({ choices: [] }), null);
+  assert.equal(extractUsage(null), null);
 });
 
 test("extracts tool call structures from common response formats", () => {

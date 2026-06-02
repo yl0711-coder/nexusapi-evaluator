@@ -1,12 +1,12 @@
 import { maskScenario } from "./profile-store.mjs";
-import { estimateProfileRunEconomics } from "./costing.mjs";
+import { aggregateUsage, estimateProfileRunEconomics } from "./costing.mjs";
 import {
   buildErrorDiagnostics,
   buildRecommendation,
   buildScenarioRecommendation,
   countErrors,
 } from "./reporting.mjs";
-import { formatPercent, groupBy, isFiniteNumber, mean, percentile, sumNullable, summarizeText } from "./utils.mjs";
+import { formatPercent, groupBy, isFiniteNumber, mean, percentile, summarizeText } from "./utils.mjs";
 
 export function buildStabilitySummary({ runId, profile, records, rounds, concurrency, prompt, startedAt, endedAt }) {
   const successRecords = records.filter((item) => item.success);
@@ -18,8 +18,8 @@ export function buildStabilitySummary({ runId, profile, records, rounds, concurr
   const successRate = records.length > 0 ? successRecords.length / records.length : 0;
   const p95TotalMs = percentile(totalTimes, 0.95);
   const recommendation = buildRecommendation(successRate, p95TotalMs, errorCounts);
-  const inputTokens = sumNullable(records.map((item) => item.inputTokens));
-  const outputTokens = sumNullable(records.map((item) => item.outputTokens));
+  const usageTotals = aggregateUsage(records);
+  const { inputTokens, outputTokens } = usageTotals;
   const economics = estimateProfileRunEconomics(profile, { inputTokens, outputTokens });
 
   return {
@@ -50,6 +50,9 @@ export function buildStabilitySummary({ runId, profile, records, rounds, concurr
     avgOutputChars: Math.round(mean(outputChars) || 0),
     inputTokens,
     outputTokens,
+    cacheCreationTokens: usageTotals.cacheCreationTokens,
+    cacheReadTokens: usageTotals.cacheReadTokens,
+    reasoningTokens: usageTotals.reasoningTokens,
     ...economics,
     errorCounts,
     diagnostics: buildErrorDiagnostics(errorCounts),
@@ -65,8 +68,8 @@ export function buildScenarioProfileSummary(profile, records) {
   const successRate = records.length > 0 ? successRecords.length / records.length : 0;
   const avgQualityScore = Math.round(mean(qualityScores) || 0);
   const errorCounts = countErrors(failedRecords);
-  const inputTokens = sumNullable(records.map((record) => record.inputTokens));
-  const outputTokens = sumNullable(records.map((record) => record.outputTokens));
+  const usageTotals = aggregateUsage(records);
+  const { inputTokens, outputTokens } = usageTotals;
   const economics = estimateProfileRunEconomics(profile, { inputTokens, outputTokens });
   const scenarioGroups = groupBy(records, (record) => record.scenarioId);
   const scenarios = Object.entries(scenarioGroups).map(([scenarioId, items]) => {
@@ -106,6 +109,9 @@ export function buildScenarioProfileSummary(profile, records) {
     avgQualityScore,
     inputTokens,
     outputTokens,
+    cacheCreationTokens: usageTotals.cacheCreationTokens,
+    cacheReadTokens: usageTotals.cacheReadTokens,
+    reasoningTokens: usageTotals.reasoningTokens,
     ...economics,
     errorCounts,
     diagnostics: buildErrorDiagnostics(errorCounts),

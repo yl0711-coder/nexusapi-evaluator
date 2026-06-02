@@ -1,3 +1,26 @@
+// 汇总一组记录的逐字段 token 用量（审计基础）。
+// 某字段在所有记录里都缺失 → 返回 null（区分"无数据"与"真实为 0"）。
+const USAGE_TOKEN_FIELDS = [
+  "inputTokens",
+  "outputTokens",
+  "cacheCreationTokens",
+  "cacheReadTokens",
+  "reasoningTokens",
+];
+
+export function aggregateUsage(records) {
+  const list = Array.isArray(records) ? records : [];
+  const totals = {};
+  for (const field of USAGE_TOKEN_FIELDS) {
+    const values = list
+      .map((record) => record?.[field])
+      .filter((value) => Number.isFinite(Number(value)))
+      .map(Number);
+    totals[field] = values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+  }
+  return totals;
+}
+
 export function normalizePricePerMillion(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);

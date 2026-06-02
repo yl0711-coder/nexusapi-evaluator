@@ -247,9 +247,20 @@ export function extractUsage(parsed) {
     return null;
   }
 
+  const usage = parsed.usage;
+  // 2026 年成本大头：缓存读写 + 推理 token。各家字段名不同，统一归一。
+  // OpenAI：prompt_tokens_details.cached_tokens / completion_tokens_details.reasoning_tokens
+  // Anthropic：cache_creation_input_tokens / cache_read_input_tokens（thinking 已计入 output_tokens）
+  const promptDetails = usage.prompt_tokens_details || usage.input_tokens_details || {};
+  const completionDetails = usage.completion_tokens_details || usage.output_tokens_details || {};
+
   return {
-    inputTokens: parsed.usage.prompt_tokens ?? parsed.usage.input_tokens ?? null,
-    outputTokens: parsed.usage.completion_tokens ?? parsed.usage.output_tokens ?? null,
+    inputTokens: usage.prompt_tokens ?? usage.input_tokens ?? null,
+    outputTokens: usage.completion_tokens ?? usage.output_tokens ?? null,
+    cacheCreationTokens: usage.cache_creation_input_tokens ?? usage.cache_creation_tokens ?? null,
+    cacheReadTokens:
+      usage.cache_read_input_tokens ?? usage.cache_read_tokens ?? promptDetails.cached_tokens ?? null,
+    reasoningTokens: usage.reasoning_tokens ?? completionDetails.reasoning_tokens ?? null,
   };
 }
 
