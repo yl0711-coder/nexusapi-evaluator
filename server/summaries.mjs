@@ -1,6 +1,7 @@
 import { maskScenario } from "./profile-store.mjs";
 import { aggregateUsage, estimateProfileRunEconomics } from "./costing.mjs";
 import { proportionReport } from "./stats.mjs";
+import { auditRunTokenUsage } from "./token-auditor.mjs";
 import {
   buildErrorDiagnostics,
   buildRecommendation,
@@ -22,6 +23,14 @@ export function buildStabilitySummary({ runId, profile, records, rounds, concurr
   const usageTotals = aggregateUsage(records);
   const { inputTokens, outputTokens } = usageTotals;
   const economics = estimateProfileRunEconomics(profile, { inputTokens, outputTokens });
+  // PALACE 计费灌水审计（整轮聚合，复用 prompt/输出/usage，不发新请求）
+  const tokenAudit = auditRunTokenUsage(
+    records.map((item) => ({
+      inputText: prompt,
+      outputText: item.responseText || "",
+      usage: { inputTokens: item.inputTokens, outputTokens: item.outputTokens },
+    })),
+  );
 
   return {
     runId,
@@ -56,6 +65,8 @@ export function buildStabilitySummary({ runId, profile, records, rounds, concurr
     cacheCreationTokens: usageTotals.cacheCreationTokens,
     cacheReadTokens: usageTotals.cacheReadTokens,
     reasoningTokens: usageTotals.reasoningTokens,
+    tokenAudit,
+    tokenAuditFindings: tokenAudit.flags || [],
     ...economics,
     errorCounts,
     diagnostics: buildErrorDiagnostics(errorCounts),
@@ -74,6 +85,13 @@ export function buildScenarioProfileSummary(profile, records) {
   const usageTotals = aggregateUsage(records);
   const { inputTokens, outputTokens } = usageTotals;
   const economics = estimateProfileRunEconomics(profile, { inputTokens, outputTokens });
+  // PALACE 审计：场景测试每条 prompt 不同，做输出侧审计（输出计费更贵，是主要灌水向量）
+  const tokenAudit = auditRunTokenUsage(
+    records.map((record) => ({
+      outputText: record.responseText || "",
+      usage: { outputTokens: record.outputTokens },
+    })),
+  );
   const scenarioGroups = groupBy(records, (record) => record.scenarioId);
   const scenarios = Object.entries(scenarioGroups).map(([scenarioId, items]) => {
     const okItems = items.filter((item) => item.success);
@@ -117,6 +135,8 @@ export function buildScenarioProfileSummary(profile, records) {
     cacheCreationTokens: usageTotals.cacheCreationTokens,
     cacheReadTokens: usageTotals.cacheReadTokens,
     reasoningTokens: usageTotals.reasoningTokens,
+    tokenAudit,
+    tokenAuditFindings: tokenAudit.flags || [],
     ...economics,
     errorCounts,
     diagnostics: buildErrorDiagnostics(errorCounts),

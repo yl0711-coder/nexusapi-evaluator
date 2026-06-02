@@ -575,6 +575,7 @@ export function formatStabilityReport(summary, records, options = {}) {
     `- 估算成本：${formatEstimatedCost(summary.estimatedCost)}（基于 API 配置里的上游成本单价）`,
     `- 估算收入：${formatEstimatedCost(summary.estimatedRevenue)}（基于 API 配置里的对外售卖单价）`,
     `- 估算毛利：${formatEstimatedCost(summary.estimatedGrossProfit)}，毛利率 ${formatEstimatedMargin(summary.estimatedGrossMargin)}`,
+    `- 计费审计（PALACE 粗筛）：${summary.tokenAudit?.verdict ?? "-"}`,
     "",
     "## 5. 建议",
     "",

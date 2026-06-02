@@ -14,7 +14,7 @@ const profile = (id, name) => ({
   channelCode: "",
 });
 
-function makeRecords(successCount, total) {
+function makeRecords(successCount, total, { responseText = "这是一段大约二十多个字的正常中文回答，用于本地 token 估算。", outputTokens = 30 } = {}) {
   const records = [];
   for (let i = 0; i < total; i++) {
     const success = i < successCount;
@@ -24,7 +24,8 @@ function makeRecords(successCount, total) {
       firstByteMs: success ? 200 + i * 10 : null,
       outputChars: success ? 120 : 0,
       inputTokens: success ? 50 : null,
-      outputTokens: success ? 30 : null,
+      outputTokens: success ? outputTokens : null,
+      responseText: success ? responseText : "",
       normalizedError: success ? null : "upstream_5xx",
     });
   }
@@ -97,4 +98,36 @@ test("batch report declares a statistically distinguishable winner when CIs sepa
   const report = formatBatchReport(batch);
   assert.match(report, /统计上可区分/);
   assert.match(report, /甲 优于 乙/);
+});
+
+function makeInflatedSummary() {
+  // 输出 token 报得远超本地估算 → PALACE 应判疑似灌水
+  const records = makeRecords(10, 10, { responseText: "好。", outputTokens: 4000 });
+  return buildStabilitySummary({
+    runId: "run-inflated",
+    profile: profile("z", "灌水渠道"),
+    records,
+    rounds: 10,
+    concurrency: 1,
+    prompt: "短",
+    startedAt: new Date("2026-06-02T00:00:00Z"),
+    endedAt: new Date("2026-06-02T00:01:00Z"),
+  });
+}
+
+test("PALACE audit is wired into the stability summary and report", () => {
+  const summary = makeStabilitySummary("a", "甲", 8, 10);
+  assert.ok(summary.tokenAudit, "summary 应带 tokenAudit");
+  assert.ok(Array.isArray(summary.tokenAuditFindings));
+  const report = formatStabilityReport(summary, makeRecords(8, 10));
+  assert.match(report, /计费审计（PALACE 粗筛）/);
+});
+
+test("PALACE flags systematic output inflation and surfaces it as a review finding", () => {
+  const summary = makeInflatedSummary();
+  assert.equal(summary.tokenAudit.suspicious, true);
+  assert.ok(summary.tokenAuditFindings.length > 0);
+  const report = formatStabilityReport(summary, makeRecords(10, 10, { responseText: "好。", outputTokens: 4000 }));
+  assert.match(report, /疑似/); // 审计结论 + 复核块都会出现"疑似"
+  assert.match(report, /需第二人签字/); // 高敏感结论触发复核
 });
