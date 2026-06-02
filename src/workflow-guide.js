@@ -4,11 +4,14 @@ import { escapeHtml } from "./client-utils.js";
 // do next, while app.js only renders the returned step and wires navigation.
 export function buildWorkflowStatus(state) {
   const targets = state.profiles.filter((profile) => profile.role === "target");
+  const hasAdmission = state.testRuns.some((run) => run.type === "admission");
+  const hasStandardLikeReport = state.testRuns.some((run) => run.type !== "admission");
   const hasReports = state.testRuns.length > 0;
 
   return {
     profiles: targets.length > 0,
-    standard: hasReports,
+    admission: hasAdmission,
+    standard: hasStandardLikeReport,
     reports: hasReports,
     handoff: false,
   };
@@ -25,6 +28,15 @@ export function getNextWorkflowStep(status) {
     };
   }
   if (!status.standard) {
+    if (!status.admission) {
+      return {
+        step: "admission",
+        page: "admission-test",
+        title: "先跑一次模型准入评测",
+        detail: "准入评测会检查协议结构、标称一致性、工具调用和基础行为，先确认渠道值得继续烧额度。",
+        button: "去准入评测",
+      };
+    }
     return {
       step: "standard",
       page: "standard-eval",

@@ -79,6 +79,22 @@ export function renderTaskEventList({ tasks, container }) {
 }
 
 function renderTestRunRow(run) {
+  if (run.type === "admission") {
+    return `
+      <div class="row test-run-row">
+        <div>
+          <strong>${escapeHtml(run.profileName)}</strong><br />
+          <small>${escapeHtml(run.model)}</small>
+        </div>
+        <span class="${recommendationClass(run.recommendation?.level)}">准入 ${escapeHtml(run.grade || "-")}</span>
+        <span>${run.score ?? "-"} 分</span>
+        <span>成功率 ${escapeHtml(run.successRateText || "-")}</span>
+        <small>${escapeHtml(run.recommendation?.title || "-")}</small>
+        <small>${escapeHtml(formatDateTime(run.startedAt))}</small>
+      </div>
+    `;
+  }
+
   if (run.type === "scenario") {
     const avgScore = Math.round(
       average(run.results?.map((item) => item.avgQualityScore).filter((value) => Number.isFinite(value)) || []) || 0,
@@ -94,6 +110,38 @@ function renderTestRunRow(run) {
         <span>质量 ${avgScore}</span>
         <small>并发 API ${run.maxParallelProfiles} / 单 API ${run.requestConcurrency}</small>
         <small>${escapeHtml(formatDateTime(run.startedAt))}</small>
+      </div>
+    `;
+  }
+
+  if (run.type === "client-replay") {
+    return `
+      <div class="row test-run-row">
+        <div>
+          <strong>真实客户端日志分析</strong><br />
+          <small>${escapeHtml(run.sourceName || "-")}</small>
+        </div>
+        <span class="${recommendationClass(run.recommendation?.level)}">${escapeHtml(run.successRateText || "-")}</span>
+        <span>${run.recordCount ?? 0} 条日志</span>
+        <span>慢请求 ${run.p95DurationMs ?? "-"} ms</span>
+        <small>${escapeHtml(run.recommendation?.title || "-")}</small>
+        <small>${escapeHtml(formatDateTime(run.generatedAt || run.startedAt))}</small>
+      </div>
+    `;
+  }
+
+  if (run.type === "supplier-evidence") {
+    return `
+      <div class="row test-run-row">
+        <div>
+          <strong>上游排查证据包</strong><br />
+          <small>${escapeHtml(run.providerName || run.sourceName || "-")}</small>
+        </div>
+        <span class="${run.failureCount ? "fail" : "ok"}">${run.failureCount ?? 0} 个异常</span>
+        <span>${run.recordCount ?? 0} 条日志</span>
+        <span>${escapeHtml(Object.keys(run.errorCounts || {})[0] || "-")}</span>
+        <small>${escapeHtml(run.conclusion || "-")}</small>
+        <small>${escapeHtml(formatDateTime(run.generatedAt || run.startedAt))}</small>
       </div>
     `;
   }

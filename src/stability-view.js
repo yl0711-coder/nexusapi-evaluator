@@ -25,6 +25,7 @@ export function renderStabilitySummary(container, result) {
       <strong class="${levelClass}">${escapeHtml(result.recommendation?.title || "-")}</strong>
       <small>${escapeHtml(result.recommendation?.detail || "-")}</small>
       <small>报告文件：${escapeHtml(result.reportPath || "-")}</small>
+      <small>JSON 原始结果：${escapeHtml(result.rawJsonPath || "-")}</small>
     </article>
   `;
 }

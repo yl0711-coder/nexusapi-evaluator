@@ -112,3 +112,82 @@ test("imported profiles do not trust external api key references", async () => {
     await rm(dataDir, { recursive: true, force: true });
   }
 });
+
+test("profiles support trusted baseline role", async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), "nexusapi-profile-baseline-test-"));
+  process.env.NEXUSAPI_DATA_DIR = dataDir;
+  process.env.NEXUSAPI_SECRET_STORE = "memory";
+
+  try {
+    const profileStore = await import(`../server/profile-store.mjs?case=baseline-${Date.now()}`);
+    const profile = await profileStore.normalizeProfile({
+      id: "baseline-api",
+      role: "baseline",
+      name: "Official Baseline",
+      provider: "Official",
+      baseUrl: "https://api.example.com",
+      apiKey: "sk-test-secret-123456",
+      protocol: "openai_compatible",
+      defaultModel: "model-a",
+    });
+
+    assert.equal(profile.role, "baseline");
+  } finally {
+    delete process.env.NEXUSAPI_DATA_DIR;
+    delete process.env.NEXUSAPI_SECRET_STORE;
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("profiles keep optional token unit prices for cost reports", async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), "nexusapi-profile-cost-test-"));
+  process.env.NEXUSAPI_DATA_DIR = dataDir;
+  process.env.NEXUSAPI_SECRET_STORE = "memory";
+
+  try {
+    const profileStore = await import(`../server/profile-store.mjs?case=cost-${Date.now()}`);
+    const costing = await import(`../server/costing.mjs?case=cost-${Date.now()}`);
+    const profile = await profileStore.normalizeProfile({
+      id: "priced-api",
+      role: "target",
+      name: "Priced API",
+      provider: "NexusAPI",
+      baseUrl: "https://api.example.com",
+      apiKey: "sk-test-secret-123456",
+      protocol: "openai_compatible",
+      defaultModel: "model-a",
+      inputPricePerMTokens: "4.5",
+      outputPricePerMTokens: "22.5",
+      inputSellPricePerMTokens: "5",
+      outputSellPricePerMTokens: "25",
+    });
+
+    assert.equal(profile.inputPricePerMTokens, 4.5);
+    assert.equal(profile.outputPricePerMTokens, 22.5);
+    assert.equal(profile.inputSellPricePerMTokens, 5);
+    assert.equal(profile.outputSellPricePerMTokens, 25);
+    assert.equal(
+      costing.estimateProfileRunCost(profile, {
+        inputTokens: 1000,
+        outputTokens: 2000,
+      }),
+      0.0495,
+    );
+    assert.deepEqual(
+      costing.estimateProfileRunEconomics(profile, {
+        inputTokens: 1000,
+        outputTokens: 2000,
+      }),
+      {
+        estimatedCost: 0.0495,
+        estimatedRevenue: 0.055,
+        estimatedGrossProfit: 0.0055,
+        estimatedGrossMargin: 0.1,
+      },
+    );
+  } finally {
+    delete process.env.NEXUSAPI_DATA_DIR;
+    delete process.env.NEXUSAPI_SECRET_STORE;
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});

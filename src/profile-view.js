@@ -21,9 +21,10 @@ export function renderProfileList({ profiles, list, onFocusForm, onDeleteProfile
             <strong>${escapeHtml(profile.name)}</strong><br />
             <small>${escapeHtml(profile.provider)}</small>
           </div>
-          <span class="tag">${profile.role === "judge" ? "主 API" : "被测 API"}</span>
+          <span class="tag">${roleLabel(profile.role)}</span>
           <span>${escapeHtml(profile.protocol)}</span>
           <span>${escapeHtml(profile.defaultModel)}</span>
+          <span>${escapeHtml(formatProfilePrice(profile))}</span>
           <span>${escapeHtml(profile.apiKey)}</span>
           <div class="row-actions">
             <button class="secondary" data-update-key="${profile.id}">更新 Key</button>
@@ -41,6 +42,15 @@ export function renderProfileList({ profiles, list, onFocusForm, onDeleteProfile
   list.querySelectorAll("[data-update-key]").forEach((button) => {
     button.addEventListener("click", () => onUpdateKey(button.dataset.updateKey));
   });
+}
+
+function formatProfilePrice(profile) {
+  const input = Number.isFinite(Number(profile.inputPricePerMTokens)) ? Number(profile.inputPricePerMTokens) : null;
+  const output = Number.isFinite(Number(profile.outputPricePerMTokens)) ? Number(profile.outputPricePerMTokens) : null;
+  const sellInput = Number.isFinite(Number(profile.inputSellPricePerMTokens)) ? Number(profile.inputSellPricePerMTokens) : null;
+  const sellOutput = Number.isFinite(Number(profile.outputSellPricePerMTokens)) ? Number(profile.outputSellPricePerMTokens) : null;
+  if (input === null && output === null && sellInput === null && sellOutput === null) return "未填单价";
+  return `成本 ${input ?? "-"}/${output ?? "-"} · 售价 ${sellInput ?? "-"}/${sellOutput ?? "-"}`;
 }
 
 export function renderMissingKeyPanel({ profiles, container, onFillKey }) {
@@ -83,7 +93,7 @@ export function renderMissingKeyPanel({ profiles, container, onFillKey }) {
 }
 
 export function renderProfileSelectOptions({ profiles, selects }) {
-  const targets = profiles.filter((profile) => profile.role === "target");
+  const targets = profiles.filter((profile) => profile.role === "target" || profile.role === "baseline");
   if (targets.length === 0) {
     selects.forEach((select) => {
       select.innerHTML = `<option value="">请先新增被测 API</option>`;
@@ -92,9 +102,15 @@ export function renderProfileSelectOptions({ profiles, selects }) {
   }
 
   const options = targets
-    .map((profile) => `<option value="${profile.id}">${escapeHtml(profile.name)} / ${escapeHtml(profile.defaultModel)}</option>`)
+    .map((profile) => `<option value="${profile.id}">${escapeHtml(profile.name)} / ${escapeHtml(profile.defaultModel)}${profile.role === "baseline" ? " / 可信基线" : ""}</option>`)
     .join("");
   selects.forEach((select) => {
     select.innerHTML = options;
   });
+}
+
+function roleLabel(role) {
+  if (role === "judge") return "主 API";
+  if (role === "baseline") return "可信基线";
+  return "被测 API";
 }

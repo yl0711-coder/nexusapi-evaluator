@@ -7,6 +7,7 @@ export function createTaskManager({
   taskEventsFile,
   errorLogFile,
   runStabilityTest,
+  runBatchAdmissionTest,
   runBatchStabilityTest,
   runScenarioTest,
   normalizeProfileIds,
@@ -48,6 +49,8 @@ export function createTaskManager({
       let result;
       if (task.type === "stability") {
         result = await runStabilityTest(payload, context);
+      } else if (task.type === "batch-admission") {
+        result = await runBatchAdmissionTest(payload, context);
       } else if (task.type === "batch-stability") {
         result = await runBatchStabilityTest(payload, context);
       } else if (task.type === "scenario") {
@@ -118,7 +121,7 @@ export function createTaskManager({
 }
 
 export function normalizeTaskType(type) {
-  if (type === "stability" || type === "batch-stability" || type === "scenario") {
+  if (type === "stability" || type === "batch-admission" || type === "batch-stability" || type === "scenario") {
     return type;
   }
   throw new Error("不支持的任务类型。");
@@ -129,6 +132,9 @@ export function estimateTaskUnits(type, payload, { normalizeProfileIds, normaliz
     return clampNumber(payload.rounds, 1, 100, 10);
   }
   if (type === "batch-stability") {
+    return normalizeProfileIds(payload.profileIds).length || 1;
+  }
+  if (type === "batch-admission") {
     return normalizeProfileIds(payload.profileIds).length || 1;
   }
   if (type === "scenario") {
@@ -207,6 +213,13 @@ export function summarizeTaskPayload(type, payload, { normalizeProfileIds, norma
       maxParallelProfiles: clampNumber(payload.maxParallelProfiles, 1, 5, 2),
       concurrency: clampNumber(payload.concurrency, 1, 5, 1),
       promptPreview: summarizeTaskPrompt(payload.prompt || ""),
+    };
+  }
+  if (type === "batch-admission") {
+    return {
+      profileCount: normalizeProfileIds(payload.profileIds).length,
+      packageLevel: payload.packageLevel || "standard",
+      maxParallelProfiles: clampNumber(payload.maxParallelProfiles, 1, 3, 1),
     };
   }
   if (type === "scenario") {

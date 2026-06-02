@@ -80,6 +80,172 @@ export function buildErrorDiagnostics(errorCounts) {
     }));
 }
 
+export function formatClientReplayReport(summary) {
+  const conclusion = buildReportConclusion({
+    successRate: summary.successRate,
+    p95TotalMs: summary.p95DurationMs,
+    errorCounts: summary.errorCounts,
+    type: "stability",
+  });
+  const riskLines = (summary.riskFlags || []).map(
+    (flag) => `- ${flag.title}（${flag.severity}）：${flag.detail}`,
+  );
+  const abnormalRows = (summary.abnormalRecords || []).map((record) =>
+    [
+      record.index,
+      escapeMarkdownTable(record.requestId),
+      escapeMarkdownTable(record.client),
+      escapeMarkdownTable(record.model || "-"),
+      escapeMarkdownTable(record.path || "-"),
+      record.statusCode ?? "-",
+      record.durationMs ?? "-",
+      escapeMarkdownTable(record.normalizedError || "-"),
+      escapeMarkdownTable(redactSensitiveText(record.rawError || record.responseSummary || "-")),
+    ].join(" | "),
+  );
+
+  return [
+    "# NexusAPI 真实客户端日志分析报告",
+    "",
+    `生成时间：${new Date().toISOString()}`,
+    "",
+    "## 1. 结论",
+    "",
+    `- 数据来源：${escapeMarkdownTable(summary.sourceName || "-")}`,
+    `- 请求数量：${summary.recordCount}`,
+    `- 成功率：${summary.successRateText}`,
+    `- 失败数量：${summary.failureCount}`,
+    `- P95 耗时：${summary.p95DurationMs ?? "-"} ms`,
+    `- JSON 原始结果：${summary.rawJsonPath || "-"}`,
+    `- 判断：${conclusion}`,
+    "",
+    "## 2. 风险提示",
+    "",
+    riskLines.join("\n") || "- 暂无明显风险。",
+    "",
+    "## 3. 客户端与请求分布",
+    "",
+    "### 3.1 客户端",
+    "",
+    formatCountsTable(summary.clientCounts, "客户端"),
+    "",
+    "### 3.2 模型",
+    "",
+    formatCountsTable(summary.modelCounts, "模型"),
+    "",
+    "### 3.3 请求路径",
+    "",
+    formatCountsTable(summary.pathCounts, "路径"),
+    "",
+    "## 4. 错误与状态分布",
+    "",
+    "### 4.1 HTTP 状态",
+    "",
+    formatCountsTable(summary.statusCounts, "状态码"),
+    "",
+    "### 4.2 错误类型",
+    "",
+    formatCountsTable(summary.errorCounts, "错误类型"),
+    "",
+    "### 4.3 诊断建议",
+    "",
+    formatDiagnosticsList(summary.diagnostics),
+    "",
+    "## 5. Token 与耗时",
+    "",
+    `- 输入 Tokens：${summary.inputTokens ?? "-"}`,
+    `- 输出 Tokens：${summary.outputTokens ?? "-"}`,
+    `- 缓存读取 Tokens：${summary.cacheReadTokens ?? "-"}`,
+    `- 缓存创建 Tokens：${summary.cacheCreateTokens ?? "-"}`,
+    `- 平均耗时：${summary.avgDurationMs ?? "-"} ms`,
+    `- P50 耗时：${summary.p50DurationMs ?? "-"} ms`,
+    `- P95 耗时：${summary.p95DurationMs ?? "-"} ms`,
+    `- 最大耗时：${summary.maxDurationMs ?? "-"} ms`,
+    "",
+    "## 6. 异常请求明细",
+    "",
+    "| # | Request ID | 客户端 | 模型 | 路径 | 状态码 | 耗时 ms | 错误类型 | 摘要 |",
+    "|---:|---|---|---|---|---:|---:|---|---|",
+    abnormalRows.join("\n") || "| - | - | - | - | - | - | - | - | 无异常请求 |",
+    "",
+    "## 7. 使用说明",
+    "",
+    "- 本报告来自客户端代理或日志导入，不包含 API Key。",
+    "- 若出现 5xx、524、504、Content block not found，应结合 NexusAPI 后台日志和上游 request_id 继续排查。",
+    "- 若出现 client_gone/context canceled，需要判断是否为客户端超时重试，以及是否产生重复扣费。",
+  ].join("\n");
+}
+
+export function formatSupplierEvidenceReport(evidence) {
+  const rows = (evidence.evidenceRecords || []).map((record) =>
+    [
+      record.index,
+      escapeMarkdownTable(record.platformRequestId || "-"),
+      escapeMarkdownTable(record.model || "-"),
+      escapeMarkdownTable(record.path || "-"),
+      record.statusCode ?? "-",
+      record.durationMs ?? "-",
+      escapeMarkdownTable(record.normalizedError || "-"),
+      escapeMarkdownTable([...(record.upstreamTraceIds || []), ...(record.upstreamRequestIds || [])].join(", ") || "-"),
+      escapeMarkdownTable(redactSensitiveText(record.summary || "-")),
+    ].join(" | "),
+  );
+  const askLines = (evidence.askList || []).map((item) => `- ${item}`);
+  const upstreamIdLines = (evidence.upstreamIds || []).map((item) => `- ${item}`);
+
+  return [
+    `# ${evidence.providerName || "上游服务商"} 异常排查证据包`,
+    "",
+    `生成时间：${new Date().toISOString()}`,
+    "",
+    "## 1. 问题结论",
+    "",
+    `- 数据来源：${escapeMarkdownTable(evidence.sourceName || "-")}`,
+    `- 时间范围：${evidence.startedAt || "-"} ~ ${evidence.endedAt || "-"}`,
+    `- 请求数量：${evidence.recordCount}`,
+    `- 失败数量：${evidence.failureCount}`,
+    `- 结论：${evidence.conclusion || "-"}`,
+    "",
+    "## 2. 请上游协助确认",
+    "",
+    askLines.join("\n") || "- 请根据请求 ID 和时间窗口排查。",
+    "",
+    "## 3. 上游可检索 ID",
+    "",
+    upstreamIdLines.join("\n") || "- 日志中未识别到上游 request_id / trace_id，请按时间窗口、模型和状态码排查。",
+    "",
+    "## 4. 请求分布",
+    "",
+    "### 4.1 状态码",
+    "",
+    formatCountsTable(evidence.statusCounts, "状态码"),
+    "",
+    "### 4.2 错误类型",
+    "",
+    formatCountsTable(evidence.errorCounts, "错误类型"),
+    "",
+    "### 4.3 模型",
+    "",
+    formatCountsTable(evidence.modelCounts, "模型"),
+    "",
+    "### 4.4 路径",
+    "",
+    formatCountsTable(evidence.pathCounts, "路径"),
+    "",
+    "## 5. 异常请求证据",
+    "",
+    "| # | 平台 Request ID | 模型 | 路径 | 状态码 | 耗时 ms | 错误类型 | 上游 ID | 错误摘要 |",
+    "|---:|---|---|---|---:|---:|---|---|---|",
+    rows.join("\n") || "| - | - | - | - | - | - | - | - | 未发现异常请求 |",
+    "",
+    "## 6. 脱敏说明",
+    "",
+    "- 本文档用于提交给上游技术排查。",
+    "- 已移除或脱敏 API Key、Authorization、token 名称、用户 ID、内部 channel id 等信息。",
+    "- 如上游需要原始请求体或完整上下文，应先确认是否可以提供以及是否需要进一步脱敏。",
+  ].join("\n");
+}
+
 export function formatScenarioReport(summary, options = {}) {
   const safetySummary = buildSafetyReportSummary(summary);
   const scenarioInsights = buildScenarioInsights(summary);
@@ -103,6 +269,8 @@ export function formatScenarioReport(summary, options = {}) {
       result.avgQualityScore,
       result.avgTotalMs || "-",
       result.p95TotalMs ?? "-",
+      formatEstimatedCost(result.estimatedCost),
+      formatEstimatedCost(result.estimatedGrossProfit),
       escapeMarkdownTable(result.recommendation?.title || "-"),
     ].join(" | "),
   );
@@ -190,6 +358,8 @@ export function formatScenarioReport(summary, options = {}) {
     `- 开始时间：${summary.startedAt}`,
     `- 结束时间：${summary.endedAt}`,
     `- 总耗时：${summary.durationMs} ms`,
+    `- 工作区目录：${summary.workspaceDir || "-"}`,
+    `- JSON 原始结果：${summary.rawJsonPath || "-"}`,
     "",
     "## 3. 关键数据解读",
     "",
@@ -204,8 +374,8 @@ export function formatScenarioReport(summary, options = {}) {
     "",
     safetySummary ? "## 6. 模型汇总" : "## 5. 模型汇总",
     "",
-    "| # | API | 模型 | 成功率 | 平均质量分 | 平均耗时 ms | 慢请求参考 P95 ms | 建议 |",
-    "|---|---|---|---:|---:|---:|---:|---|",
+    "| # | API | 模型 | 成功率 | 平均质量分 | 平均耗时 ms | 慢请求参考 P95 ms | 估算成本 | 估算毛利 | 建议 |",
+    "|---|---|---|---:|---:|---:|---:|---:|---:|---|",
     profileRows.join("\n"),
     "",
     safetySummary ? "## 7. 场景明细" : "## 6. 场景明细",
@@ -270,6 +440,7 @@ export function formatStabilityReport(summary, records, options = {}) {
     "## 3. 测试对象",
     "",
     `- 配置名称：${summary.profileName}`,
+    `- 配置角色：${formatProfileRole(summary.profileRole)}`,
     `- 供应商：${summary.provider}`,
     `- 模型：${summary.model}`,
     `- 协议：${summary.protocol}`,
@@ -279,6 +450,8 @@ export function formatStabilityReport(summary, records, options = {}) {
     `- 开始时间：${summary.startedAt}`,
     `- 结束时间：${summary.endedAt}`,
     `- 总耗时：${summary.durationMs} ms`,
+    `- 工作区目录：${summary.workspaceDir || "-"}`,
+    `- JSON 原始结果：${summary.rawJsonPath || "-"}`,
     "",
     "## 4. 专业汇总结论",
     "",
@@ -293,6 +466,9 @@ export function formatStabilityReport(summary, records, options = {}) {
     `- 平均输出字符：${summary.avgOutputChars}`,
     `- 输入 tokens 合计：${summary.inputTokens ?? "-"}（专业成本参考）`,
     `- 输出 tokens 合计：${summary.outputTokens ?? "-"}（专业成本参考）`,
+    `- 估算成本：${formatEstimatedCost(summary.estimatedCost)}（基于 API 配置里的上游成本单价）`,
+    `- 估算收入：${formatEstimatedCost(summary.estimatedRevenue)}（基于 API 配置里的对外售卖单价）`,
+    `- 估算毛利：${formatEstimatedCost(summary.estimatedGrossProfit)}，毛利率 ${formatEstimatedMargin(summary.estimatedGrossMargin)}`,
     "",
     "## 5. 建议",
     "",
@@ -337,9 +513,9 @@ export function formatStabilityReport(summary, records, options = {}) {
 export function formatBatchReport(summary, options = {}) {
   const rows = summary.results.map((result, index) => {
     if (result.error) {
-      return `| ${index + 1} | - | 失败 | - | - | - | ${escapeMarkdownTable(result.error)} |`;
+      return `| ${index + 1} | - | 失败 | - | - | - | - | - | ${escapeMarkdownTable(result.error)} |`;
     }
-    return `| ${index + 1} | ${escapeMarkdownTable(result.profileName)} | ${result.successRateText} | ${result.avgTotalMs || "-"} | ${result.p95TotalMs ?? "-"} | ${escapeMarkdownTable(result.recommendation?.title || "-")} | ${escapeMarkdownTable(result.reportPath || "-")} |`;
+    return `| ${index + 1} | ${escapeMarkdownTable(result.profileName)} | ${result.successRateText} | ${result.avgTotalMs || "-"} | ${result.p95TotalMs ?? "-"} | ${formatEstimatedCost(result.estimatedCost)} | ${formatEstimatedCost(result.estimatedGrossProfit)} | ${escapeMarkdownTable(result.recommendation?.title || "-")} | ${escapeMarkdownTable(result.reportPath || "-")} |`;
   });
   const rankedResults = summary.results
     .filter((result) => !result.error)
@@ -402,6 +578,8 @@ export function formatBatchReport(summary, options = {}) {
     `- 开始时间：${summary.startedAt}`,
     `- 结束时间：${summary.endedAt}`,
     `- 总耗时：${summary.durationMs} ms`,
+    `- 工作区目录：${summary.workspaceDir || "-"}`,
+    `- JSON 原始结果：${summary.rawJsonPath || "-"}`,
     "",
     "## 4. 专业批量结论",
     "",
@@ -409,8 +587,8 @@ export function formatBatchReport(summary, options = {}) {
     "",
     "## 5. 汇总表",
     "",
-    "| # | API | 成功率 | 平均耗时 ms | 慢请求参考 P95 ms | 建议 | 单项报告 |",
-    "|---|---|---:|---:|---:|---|---|",
+    "| # | API | 成功率 | 平均耗时 ms | 慢请求参考 P95 ms | 估算成本 | 估算毛利 | 建议 | 单项报告 |",
+    "|---|---|---:|---:|---:|---:|---:|---|---|",
     rows.join("\n"),
     "",
     "## 6. 错误诊断与处理建议",
@@ -427,6 +605,288 @@ export function formatBatchReport(summary, options = {}) {
     "- 如果多个渠道同时失败，优先排查本地网络、代理、统一网关或上游平台状态。",
     "- 如果只有某一个渠道失败，优先排查该渠道的模型名、Key、额度、限流和上游转换逻辑。",
   ].join("\n");
+}
+
+export function formatBatchAdmissionReport(summary) {
+  const rankedResults = [...(summary.results || [])]
+    .filter((result) => !result.error)
+    .sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
+  const best = rankedResults[0];
+  const failedCount = (summary.results || []).filter((result) => result.error || ["D", "E", "F", "X"].includes(result.grade)).length;
+  const rows = (summary.results || []).map((result, index) => {
+    if (result.error) {
+      return `| ${index + 1} | - | - | 执行失败 | - | - | - | - | - | ${escapeMarkdownTable(result.error)} |`;
+    }
+    return [
+      index + 1,
+      escapeMarkdownTable(result.profileName || "-"),
+      escapeMarkdownTable(result.model || "-"),
+      result.grade || "-",
+      result.score ?? "-",
+      result.successRateText || "-",
+      result.fingerprintSummary?.passRateText || "未测试",
+      formatEstimatedCost(result.estimatedCost),
+      formatEstimatedCost(result.estimatedGrossProfit),
+      escapeMarkdownTable(result.recommendation?.title || "-"),
+    ].join(" | ");
+  });
+  const conclusion = best
+    ? `本批次准入初筛最高分为 ${best.profileName}，准入等级 ${best.grade}，综合分 ${best.score}/100。暂不建议继续测试或需要先排查的配置数量：${failedCount}/${summary.profileCount}。`
+    : "本批次没有可用候选，建议先检查 API 配置、协议、模型名和 Key。";
+  const rankedLines = rankedResults.length
+    ? rankedResults
+        .slice(0, 10)
+        .map(
+          (result, index) =>
+            `${index + 1}. ${result.profileName || "-"} / ${result.model || "-"}：等级 ${result.grade || "-"}，综合分 ${result.score ?? "-"}，纯度 ${
+              result.purityAssessment?.score ?? "-"
+            }，指纹 ${result.fingerprintSummary?.passRateText || "未测试"}。`,
+        )
+        .join("\n")
+    : "- 暂无可排序结果。";
+
+  return [
+    "# NexusAPI 批量准入评测报告",
+    "",
+    `生成时间：${new Date().toISOString()}`,
+    "",
+    "## 1. 给业务人员看的结论",
+    "",
+    `- 结论：${best ? "本批次已有可继续复测候选" : "本批次暂未发现可用候选"}`,
+    `- 原因：${conclusion}`,
+    `- 下一步：${best ? "优先对高分候选执行稳定性测试和真实编程场景测试。" : "先修正配置后重新执行快速或标准准入。"}`,
+    "",
+    "## 2. 批量任务",
+    "",
+    `- 批次 ID：${summary.batchId}`,
+    `- 被测 API 数量：${summary.profileCount}`,
+    `- 测试包：${summary.packageLevel}`,
+    `- 同时测试 API 数：${summary.maxParallelProfiles}`,
+    `- 开始时间：${summary.startedAt}`,
+    `- 结束时间：${summary.endedAt}`,
+    `- 总耗时：${summary.durationMs} ms`,
+    `- 工作区目录：${summary.workspaceDir || "-"}`,
+    `- JSON 原始结果：${summary.rawJsonPath || "-"}`,
+    "",
+    "## 3. 候选排序",
+    "",
+    rankedLines,
+    "",
+    "## 4. 汇总表",
+    "",
+    "| # | API | 模型 | 准入等级 | 综合分 | 成功率 | 指纹通过率 | 估算成本 | 估算毛利 | 建议 |",
+    "|---|---|---|---:|---:|---:|---:|---:|---:|---|",
+    rows.join("\n"),
+    "",
+    "## 5. 使用建议",
+    "",
+    "- 批量准入只负责初筛，不替代稳定性测试和真实业务场景测试。",
+    "- 高分候选应继续做 10 轮以上稳定性测试，并在编程、长文本和工具调用场景复核。",
+    "- 低分候选应先检查协议、模型名、渠道类型和上游响应结构。",
+    "- 报告不包含 API Key。",
+  ].join("\n");
+}
+
+export function formatAdmissionReport(summary, records) {
+  const caseRows = summary.cases.map((item, index) =>
+    [
+      index + 1,
+      escapeMarkdownTable(item.name),
+      item.passed ? "通过" : "未通过",
+      item.statusCode ?? "-",
+      item.totalMs ?? "-",
+      item.inputTokens ?? "-",
+      item.outputTokens ?? "-",
+      escapeMarkdownTable(item.issue || item.summary || "-"),
+    ].join(" | "),
+  );
+  const errorLines = Object.entries(summary.errorCounts || {});
+  const evidenceRows = records.map((record, index) =>
+    [
+      index + 1,
+      escapeMarkdownTable(record.caseName || record.caseId || "-"),
+      record.success ? "成功" : "失败",
+      record.statusCode ?? "-",
+      record.firstByteMs ?? "-",
+      record.totalMs ?? "-",
+      escapeMarkdownTable(redactSensitiveText(record.responseSummary || record.rawError || "-")),
+    ].join(" | "),
+  );
+
+  return [
+    "# NexusAPI 模型准入评测报告",
+    "",
+    `生成时间：${new Date().toISOString()}`,
+    "",
+    "## 1. 准入结论",
+    "",
+    `- 结论：${summary.recommendation.title}`,
+    `- 准入等级：${summary.grade}`,
+    `- 综合分：${summary.score}/100`,
+    `- 原因：${summary.recommendation.detail}`,
+    `- 下一步：${summary.nextAction}`,
+    "",
+    "## 2. 被测对象",
+    "",
+    `- 测试 ID：${summary.runId}`,
+    `- 配置名称：${summary.profileName}`,
+    `- 配置角色：${formatProfileRole(summary.profileRole)}`,
+    `- 供应商：${summary.provider}`,
+    `- 模型：${summary.model}`,
+    `- 协议：${summary.protocol}`,
+    `- 渠道标识：${summary.channelCode || "-"}`,
+    `- 测试包：${summary.packageLevel}`,
+    `- 开始时间：${summary.startedAt}`,
+    `- 结束时间：${summary.endedAt}`,
+    `- 总耗时：${summary.durationMs} ms`,
+    `- 工作区目录：${summary.workspaceDir || "-"}`,
+    `- JSON 原始结果：${summary.rawJsonPath || "-"}`,
+    "",
+    "## 3. 关键指标",
+    "",
+    `- 请求数：${summary.requestCount}`,
+    `- 成功率：${summary.successRateText} (${summary.successCount}/${summary.requestCount})`,
+    `- 平均耗时：${summary.avgTotalMs ?? "-"} ms`,
+    `- 慢请求参考 P95：${summary.p95TotalMs ?? "-"} ms`,
+    `- 输入 tokens 合计：${summary.inputTokens ?? "-"}`,
+    `- 输出 tokens 合计：${summary.outputTokens ?? "-"}`,
+    `- 估算成本：${formatEstimatedCost(summary.estimatedCost)}（基于 API 配置里的上游成本单价）`,
+    `- 估算收入：${formatEstimatedCost(summary.estimatedRevenue)}（基于 API 配置里的对外售卖单价）`,
+    `- 估算毛利：${formatEstimatedCost(summary.estimatedGrossProfit)}，毛利率 ${formatEstimatedMargin(summary.estimatedGrossMargin)}`,
+    `- 工具调用：${summary.toolCallPassed ? "通过" : "未通过或未测试"}`,
+    `- 流式结构：${summary.streamPassed ? "通过" : "未通过或未测试"}`,
+    `- JSON 结构：${summary.jsonPassed ? "通过" : "未通过或未测试"}`,
+    `- 标称一致性：${formatIdentityCheck(summary.identityCheck)}`,
+    `- 模型纯度初判：${formatPurityAssessment(summary.purityAssessment)}`,
+    `- 指纹探针：${formatFingerprintSummary(summary.fingerprintSummary)}`,
+    `- Token 审计覆盖率：${summary.tokenAudit?.usageCoverageText || "未知"}`,
+    "",
+    "## 4. 分项结果",
+    "",
+    "| # | 测试项 | 结果 | HTTP 状态 | 总耗时 ms | 输入 tokens | 输出 tokens | 说明 |",
+    "|---|---|---|---:|---:|---:|---:|---|",
+    caseRows.join("\n"),
+    "",
+    "## 5. 错误分布",
+    "",
+    errorLines.length ? errorLines.map(([code, count]) => `- ${code}: ${count}`).join("\n") : "- 无",
+    "",
+    "## 6. 请求证据",
+    "",
+    "| # | 测试项 | 结果 | HTTP 状态 | 首包 ms | 总耗时 ms | 摘要 |",
+    "|---|---|---|---:|---:|---:|---|",
+    evidenceRows.join("\n"),
+    "",
+    "## 7. 模型纯度与渠道风险初判",
+    "",
+    formatPuritySection(summary.purityAssessment, summary.tokenAudit, summary.fingerprintSummary),
+    "",
+    "## 8. 说明",
+    "",
+    "- 本报告用于接入前初筛，不等同于官方模型身份鉴定。",
+    "- 准入等级由连通性、协议结构、工具调用、任务行为、耗时和 token 返回情况综合判断。",
+    "- 如果分数低或出现结构失败，需要先复核协议、模型名、渠道类型和上游转换逻辑，再进入稳定性测试。",
+    "- 报告不包含 API Key。",
+  ].join("\n");
+}
+
+function formatPurityAssessment(purityAssessment) {
+  if (!purityAssessment) return "未评估";
+  return `${purityAssessment.title}（${purityAssessment.score}/100，置信度 ${purityAssessment.confidence}）`;
+}
+
+function formatFingerprintSummary(fingerprintSummary) {
+  if (!fingerprintSummary?.totalCount) return "未测试";
+  const version = fingerprintSummary.libraryVersion ? `，题库 ${fingerprintSummary.libraryVersion}` : "";
+  return `${fingerprintSummary.passedCount}/${fingerprintSummary.totalCount} 通过（${fingerprintSummary.passRateText}${version}）`;
+}
+
+function formatPuritySection(purityAssessment, tokenAudit, fingerprintSummary) {
+  if (!purityAssessment) {
+    return "- 未生成模型纯度初判。";
+  }
+  const evidenceLines = purityAssessment.evidence?.length
+    ? purityAssessment.evidence.map((item) => `- ${item.code}：${item.detail}`).join("\n")
+    : "- 暂无正向证据。";
+  const riskLines = purityAssessment.riskFlags?.length
+    ? purityAssessment.riskFlags.map((item) => `- ${item.title}（${item.severity}）：${item.detail}`).join("\n")
+    : "- 暂未发现高风险信号。";
+  const tokenIssueLines = tokenAudit?.issues?.length
+    ? tokenAudit.issues.map((item) => `- ${item.title}（${item.severity}）：${item.detail}`).join("\n")
+    : "- Token usage 覆盖情况未发现明显异常。";
+  const fingerprintLines = fingerprintSummary?.probes?.length
+    ? fingerprintSummary.probes
+        .map((item) =>
+          `- ${item.name || item.id}：${item.passed ? "通过" : "未通过"}。${item.issue || ""}${
+            item.signals?.length ? ` 证据：${item.signals.join("、")}` : ""
+          }`,
+        )
+        .join("\n")
+    : "- 未执行模型指纹探针。";
+
+  return [
+    `- 初判：${purityAssessment.title}`,
+    `- 纯度分：${purityAssessment.score}/100`,
+    `- 标称家族：${purityAssessment.expectedFamilyLabel || "-"}`,
+    `- 证据置信度：${purityAssessment.confidence}`,
+    `- 下一步：${purityAssessment.nextAction}`,
+    "",
+    "### 7.1 正向证据",
+    "",
+    evidenceLines,
+    "",
+    "### 7.2 风险信号",
+    "",
+    riskLines,
+    "",
+    "### 7.3 Token 审计",
+    "",
+    `- usage 覆盖率：${tokenAudit?.usageCoverageText || "未知"}`,
+    `- 输入 tokens 合计：${tokenAudit?.inputTokens ?? "-"}`,
+    `- 输出 tokens 合计：${tokenAudit?.outputTokens ?? "-"}`,
+    `- 平均输入 tokens：${tokenAudit?.avgInputTokens ?? "-"}`,
+    `- 平均输出 tokens：${tokenAudit?.avgOutputTokens ?? "-"}`,
+    tokenIssueLines,
+    "",
+    "### 7.4 模型指纹探针",
+    "",
+    `- 题库版本：${fingerprintSummary?.libraryVersion || "-"}`,
+    `- 通过率：${formatFingerprintSummary(fingerprintSummary)}`,
+    fingerprintLines,
+  ].join("\n");
+}
+
+function formatIdentityCheck(identityCheck) {
+  if (!identityCheck) return "未测试";
+  if (identityCheck.status === "aligned") {
+    return `一致（标称 ${identityCheck.expectedFamily}，自述 ${identityCheck.reportedFamily}）`;
+  }
+  if (identityCheck.status === "conflict") {
+    return `冲突（标称 ${identityCheck.expectedFamily}，自述 ${identityCheck.reportedFamily}）`;
+  }
+  if (identityCheck.status === "observed") {
+    return `已记录（自述 ${identityCheck.reportedFamily}，标称未知）`;
+  }
+  return `无法确认（标称 ${identityCheck.expectedFamily || "unknown"}，自述 ${identityCheck.reportedFamily || "unknown"}）`;
+}
+
+function formatProfileRole(role) {
+  if (role === "baseline") return "可信基线 API";
+  if (role === "judge") return "主 API / 评分 API";
+  return "被测 API";
+}
+
+function formatEstimatedCost(value) {
+  if (!Number.isFinite(Number(value))) return "-";
+  const number = Number(value);
+  if (number === 0) return "0";
+  if (number < 0.01) return number.toFixed(4);
+  return number.toFixed(2);
+}
+
+function formatEstimatedMargin(value) {
+  if (!Number.isFinite(Number(value))) return "-";
+  return formatPercent(Number(value));
 }
 
 export async function saveReportFiles(baseName, markdown, title) {
@@ -463,6 +923,14 @@ function formatDiagnosticsList(diagnostics) {
   return diagnostics
     .map((item) => `- ${item.code} × ${item.count}：${item.title}。可能原因：${item.cause} 建议：${item.action}`)
     .join("\n");
+}
+
+function formatCountsTable(counts = {}, label = "项目") {
+  const rows = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, count]) => `| ${escapeMarkdownTable(key)} | ${count} |`);
+  if (!rows.length) return "- 无";
+  return [`| ${label} | 数量 |`, "|---|---:|", ...rows].join("\n");
 }
 
 function optionalReportSection(markdown) {

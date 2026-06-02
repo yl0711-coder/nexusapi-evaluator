@@ -11,6 +11,7 @@ export const DATA_DIR = process.env.NEXUSAPI_DATA_DIR || join(ROOT, "NexusAPI数
 export const CONFIG_DIR = join(DATA_DIR, "配置");
 export const REPORTS_DIR = join(DATA_DIR, "报告");
 export const LOGS_DIR = join(DATA_DIR, "日志");
+export const WORKSPACES_DIR = join(DATA_DIR, "工作区");
 export const VAULT_DIR = join(DATA_DIR, ".vault");
 export const RUNTIME_DIR = join(DATA_DIR, ".runtime");
 export const PROFILES_FILE = join(CONFIG_DIR, "profiles.json");

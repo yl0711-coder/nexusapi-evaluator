@@ -11,7 +11,14 @@ test("workflow guide points operators to the next missing step", () => {
     requests: [],
     testRuns: [],
   });
-  assert.equal(getNextWorkflowStep(quickStatus).step, "standard");
+  assert.equal(getNextWorkflowStep(quickStatus).step, "admission");
+
+  const admissionStatus = buildWorkflowStatus({
+    profiles: [{ role: "target" }],
+    requests: [],
+    testRuns: [{ type: "admission" }],
+  });
+  assert.equal(getNextWorkflowStep(admissionStatus).step, "standard");
 
   const handoffStatus = buildWorkflowStatus({
     profiles: [{ role: "target" }],

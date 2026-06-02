@@ -146,6 +146,128 @@ test("reports can include optional AI analysis without replacing local conclusio
   assert.match(markdown, /AI 人话结论/);
 });
 
+test("admission reports contain grade, evidence, and no API key", async () => {
+  const reporting = await import(`../server/reporting.mjs?case=admission-${Date.now()}`);
+  const markdown = reporting.formatAdmissionReport(
+    {
+      runId: "admission-test",
+      profileName: "Candidate API",
+      profileRole: "baseline",
+      provider: "Provider",
+      model: "claude-opus-test",
+      protocol: "claude_messages",
+      channelCode: "CH-A",
+      packageLevel: "standard",
+      startedAt: "2026-01-01T00:00:00.000Z",
+      endedAt: "2026-01-01T00:00:08.000Z",
+      durationMs: 8000,
+      requestCount: 2,
+      successCount: 1,
+      successRateText: "50%",
+      grade: "C",
+      score: 72,
+      avgTotalMs: 3000,
+      p95TotalMs: 5000,
+      inputTokens: 100,
+      outputTokens: 50,
+      toolCallPassed: false,
+      streamPassed: true,
+      jsonPassed: true,
+      identityCheck: {
+        status: "aligned",
+        expectedFamily: "claude",
+        reportedFamily: "claude",
+      },
+      purityAssessment: {
+        title: "高可信候选",
+        score: 92,
+        confidence: "medium",
+        expectedFamilyLabel: "Claude",
+        nextAction: "进入稳定性复测。",
+        evidence: [{ code: "工具调用", detail: "工具调用结构通过。" }],
+        riskFlags: [],
+      },
+      tokenAudit: {
+        usageCoverageText: "100%",
+        inputTokens: 100,
+        outputTokens: 50,
+        avgInputTokens: 50,
+        avgOutputTokens: 25,
+        issues: [],
+      },
+      fingerprintSummary: {
+        totalCount: 2,
+        passedCount: 2,
+        failedCount: 0,
+        passRateText: "100%",
+        passRate: 1,
+        probes: [
+          {
+            id: "fingerprint_instruction_lock",
+            name: "指纹探针：固定 JSON 指令",
+            passed: true,
+            issue: "固定 JSON 指令遵循通过。",
+            signals: ["NXFP-7429"],
+          },
+        ],
+      },
+      errorCounts: { tool_call_missing: 1 },
+      recommendation: {
+        title: "可观察，需要复测",
+        detail: "工具调用没有通过，建议复核协议。",
+      },
+      nextAction: "复核协议后重新测试。",
+      cases: [
+        {
+          name: "结构化输出",
+          passed: true,
+          statusCode: 200,
+          totalMs: 2000,
+          inputTokens: 20,
+          outputTokens: 10,
+          issue: "结构正常。",
+        },
+        {
+          name: "工具调用结构",
+          passed: false,
+          statusCode: 200,
+          totalMs: 4000,
+          inputTokens: 30,
+          outputTokens: 5,
+          issue: "缺少工具调用。",
+        },
+      ],
+    },
+    [
+      {
+        caseName: "结构化输出",
+        success: true,
+        statusCode: 200,
+        firstByteMs: 200,
+        totalMs: 2000,
+        responseSummary: "ok sk-should-not-leak",
+      },
+    ],
+  );
+
+  assert.match(markdown, /NexusAPI 模型准入评测报告/);
+  assert.match(markdown, /准入等级：C/);
+  assert.match(markdown, /配置角色：可信基线 API/);
+  assert.match(markdown, /综合分：72\/100/);
+  assert.match(markdown, /分项结果/);
+  assert.match(markdown, /流式结构：通过/);
+  assert.match(markdown, /标称一致性：一致/);
+  assert.match(markdown, /模型纯度初判：高可信候选/);
+  assert.match(markdown, /指纹探针：2\/2 通过/);
+  assert.match(markdown, /模型指纹探针/);
+  assert.match(markdown, /Token 审计覆盖率：100%/);
+  assert.match(markdown, /模型纯度与渠道风险初判/);
+  assert.match(markdown, /请求证据/);
+  assert.match(markdown, /报告不包含 API Key/);
+  assert.equal(markdown.includes("sk-should-not-leak"), false);
+  assert.match(markdown, /\[redacted-secret\]/);
+});
+
 test("scenario reports explain content safety risks in plain language", async () => {
   const reporting = await import(`../server/reporting.mjs?case=safety-${Date.now()}`);
   const markdown = reporting.formatScenarioReport({
@@ -246,4 +368,43 @@ test("batch reports include readable comparison data and next steps", async () =
   assert.match(markdown, /失败或低成功率配置/);
   assert.match(markdown, /使用建议/);
   assert.match(markdown, /低延迟场景/);
+});
+
+test("batch admission reports summarize candidate ranking", async () => {
+  const reporting = await import(`../server/reporting.mjs?case=batch-admission-${Date.now()}`);
+  const markdown = reporting.formatBatchAdmissionReport({
+    batchId: "admission-batch-test",
+    profileCount: 2,
+    packageLevel: "standard",
+    maxParallelProfiles: 1,
+    startedAt: "2026-01-01T00:00:00.000Z",
+    endedAt: "2026-01-01T00:00:10.000Z",
+    durationMs: 10000,
+    results: [
+      {
+        profileName: "Candidate A",
+        model: "claude-opus-test",
+        grade: "A",
+        score: 92,
+        successRateText: "100%",
+        purityAssessment: { score: 88 },
+        fingerprintSummary: { passRateText: "100%" },
+        recommendation: { title: "可继续复测" },
+      },
+      {
+        profileName: "Candidate B",
+        model: "claude-opus-test",
+        grade: "D",
+        score: 50,
+        successRateText: "60%",
+        fingerprintSummary: { passRateText: "50%" },
+        recommendation: { title: "先排查" },
+      },
+    ],
+  });
+
+  assert.match(markdown, /NexusAPI 批量准入评测报告/);
+  assert.match(markdown, /Candidate A/);
+  assert.match(markdown, /综合分 92/);
+  assert.match(markdown, /批量准入只负责初筛/);
 });

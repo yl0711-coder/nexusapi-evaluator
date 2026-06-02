@@ -2,11 +2,20 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { MIME_TYPES, TEST_SCENARIOS } from "./server/constants.mjs";
-import { DOCS_ROOT, ERROR_LOG_FILE, STATIC_ROOT, TASK_EVENTS_FILE } from "./server/paths.mjs";
+import { DOCS_ROOT, ERROR_LOG_FILE, STATIC_ROOT, TASK_EVENTS_FILE, TEST_RUNS_FILE } from "./server/paths.mjs";
 import { ensureDataDir, readRecentErrors, readRecentRequests, readRecentTasks, readRecentTestRuns } from "./server/data-store.mjs";
+import {
+  analyzeClientLogs,
+  buildSupplierEvidence,
+  extractClientLogRecords,
+  extractReplayCandidates,
+} from "./server/client-log-analyzer.mjs";
+import { readClientLogDirectory } from "./server/client-log-importer.mjs";
+import { runClientReplay } from "./server/client-replay.mjs";
 import { buildUserErrorMessage, logTechnicalError } from "./server/error-log.mjs";
 import { isAllowedBrowserOrigin, staticSecurityHeaders } from "./server/http-security.mjs";
 import { HttpRequestError, readJson } from "./server/http-request.mjs";
+import { formatClientReplayReport, formatSupplierEvidenceReport, saveReportFiles } from "./server/reporting.mjs";
 import {
   exportProfile,
   loadProfiles,
@@ -23,18 +32,22 @@ import { buildSupportBundle } from "./server/support-bundle.mjs";
 import {
   normalizeProfileIds,
   normalizeScenarioIds,
+  runAdmissionTest,
+  runBatchAdmissionTest,
   runBatchStabilityTest,
   runQuickTest,
   runScenarioTest,
   runStabilityTest,
 } from "./server/test-runner.mjs";
 import { getRawRequestPathname, resolveRequestPathInside } from "./server/static-paths.mjs";
-import { hasProxyEnv, requiredString, safeJson, sendJson } from "./server/utils.mjs";
+import { appendJsonLine, compactDate, hasProxyEnv, requiredString, safeJson, sendJson } from "./server/utils.mjs";
+import { saveRunArtifacts } from "./server/workspace-store.mjs";
 
 const PORT = Number(process.env.API_PORT || process.env.PORT || 5180);
 const taskManager = createTaskManager({
   taskEventsFile: TASK_EVENTS_FILE,
   runStabilityTest,
+  runBatchAdmissionTest,
   runBatchStabilityTest,
   runScenarioTest,
   normalizeProfileIds,
@@ -121,6 +134,214 @@ async function handleApi(req, res) {
       },
     });
     sendJson(res, 200, { ok: true, errorId });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/client-logs/analyze") {
+    const body = await readJson(req);
+    const records = extractClientLogRecords(body);
+    if (!records.length) {
+      sendJson(res, 400, {
+        error: "empty_client_logs",
+        message: "没有解析到可分析的客户端日志。请传入 records 数组或 JSONL/文本日志。",
+      });
+      return;
+    }
+    const runId = `client-replay-${compactDate(new Date())}`;
+    const summary = analyzeClientLogs(records, {
+      runId,
+      sourceName: body.sourceName || body.fileName || "客户端代理日志",
+    });
+    const artifactFiles = await saveRunArtifacts(runId, {
+      summary: {
+        ...summary,
+        records: undefined,
+      },
+      records: summary.records,
+    });
+    summary.workspaceDir = artifactFiles.workspaceDir;
+    summary.rawJsonPath = artifactFiles.rawJsonPath;
+    const reportMarkdown = formatClientReplayReport(summary);
+    const reportFiles = await saveReportFiles(runId, reportMarkdown, "NexusAPI 真实客户端日志分析报告");
+    const { records: normalizedRecords, ...safeSummary } = summary;
+    await appendJsonLine(TEST_RUNS_FILE, {
+      ...safeSummary,
+      reportPath: reportFiles.markdownPath,
+      reportHtmlPath: reportFiles.htmlPath,
+    });
+    sendJson(res, 200, {
+      ...safeSummary,
+      recordCount: normalizedRecords.length,
+      reportPath: reportFiles.markdownPath,
+      reportHtmlPath: reportFiles.htmlPath,
+      reportMarkdown,
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/client-logs/import-directory") {
+    const body = await readJson(req);
+    const imported = await readClientLogDirectory(body.directoryPath, {
+      maxFiles: body.maxFiles,
+      recursive: body.recursive,
+    });
+    sendJson(res, 200, imported);
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/client-logs/replay-candidates") {
+    const body = await readJson(req);
+    const candidates = extractReplayCandidates(body);
+    sendJson(res, 200, {
+      count: candidates.length,
+      candidates,
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/client-logs/replay-batch") {
+    const body = await readJson(req);
+    const profileId = requiredString(body.profileId, "被测 API");
+    const profiles = await loadProfiles();
+    const profile = profiles.find((item) => item.id === profileId);
+    if (!profile) {
+      sendJson(res, 404, { error: "profile_not_found", message: "没有找到被测 API 配置。" });
+      return;
+    }
+    const candidates = extractReplayCandidates(body);
+    if (!candidates.length) {
+      sendJson(res, 400, {
+        error: "empty_replay_candidates",
+        message: "没有找到可批量回放的请求。请确认日志里包含 request.body 或 body 字段。",
+      });
+      return;
+    }
+    const replayLimit = normalizeReplayLimit(body.maxReplayCount);
+    const runId = `client-replay-batch-${compactDate(new Date())}`;
+    const selectedCandidates = candidates.slice(0, replayLimit);
+    const replayRecords = [];
+    for (const [index, candidate] of selectedCandidates.entries()) {
+      const replayRecord = await runClientReplay(profile, {
+        ...body,
+        request: candidate.request,
+        requestId: `${runId}-${index + 1}`,
+      });
+      replayRecords.push(replayRecord);
+    }
+    const summary = analyzeClientLogs(replayRecords, {
+      runId,
+      sourceName: body.sourceName || `批量真实客户端请求回放 / ${profile.name}`,
+    });
+    summary.replayCandidateCount = candidates.length;
+    summary.replayedCount = replayRecords.length;
+    summary.replayLimit = replayLimit;
+    const artifactFiles = await saveRunArtifacts(runId, {
+      summary: {
+        ...summary,
+        records: undefined,
+      },
+      candidates: selectedCandidates,
+      records: summary.records,
+    });
+    summary.workspaceDir = artifactFiles.workspaceDir;
+    summary.rawJsonPath = artifactFiles.rawJsonPath;
+    const reportMarkdown = formatClientReplayReport(summary);
+    const reportFiles = await saveReportFiles(runId, reportMarkdown, "NexusAPI 批量真实客户端请求回放报告");
+    const { records: normalizedRecords, ...safeSummary } = summary;
+    await appendJsonLine(TEST_RUNS_FILE, {
+      ...safeSummary,
+      reportPath: reportFiles.markdownPath,
+      reportHtmlPath: reportFiles.htmlPath,
+    });
+    sendJson(res, 200, {
+      ...safeSummary,
+      recordCount: normalizedRecords.length,
+      reportPath: reportFiles.markdownPath,
+      reportHtmlPath: reportFiles.htmlPath,
+      reportMarkdown,
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/client-logs/supplier-evidence") {
+    const body = await readJson(req);
+    const records = extractClientLogRecords(body);
+    if (!records.length) {
+      sendJson(res, 400, {
+        error: "empty_client_logs",
+        message: "没有解析到可生成证据包的客户端日志。请传入 records 数组或 JSONL/文本日志。",
+      });
+      return;
+    }
+    const runId = `supplier-evidence-${compactDate(new Date())}`;
+    const evidence = buildSupplierEvidence(records, {
+      runId,
+      sourceName: body.sourceName || body.fileName || "客户端代理日志",
+      providerName: body.providerName || "上游服务商",
+    });
+    const artifactFiles = await saveRunArtifacts(runId, {
+      evidence,
+    });
+    evidence.workspaceDir = artifactFiles.workspaceDir;
+    evidence.rawJsonPath = artifactFiles.rawJsonPath;
+    const reportMarkdown = formatSupplierEvidenceReport(evidence);
+    const reportFiles = await saveReportFiles(runId, reportMarkdown, `${evidence.providerName} 异常排查证据包`);
+    await appendJsonLine(TEST_RUNS_FILE, {
+      ...evidence,
+      reportPath: reportFiles.markdownPath,
+      reportHtmlPath: reportFiles.htmlPath,
+    });
+    sendJson(res, 200, {
+      ...evidence,
+      reportPath: reportFiles.markdownPath,
+      reportHtmlPath: reportFiles.htmlPath,
+      reportMarkdown,
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/client-logs/replay") {
+    const body = await readJson(req);
+    const profileId = requiredString(body.profileId, "被测 API");
+    const profiles = await loadProfiles();
+    const profile = profiles.find((item) => item.id === profileId);
+    if (!profile) {
+      sendJson(res, 404, { error: "profile_not_found", message: "没有找到被测 API 配置。" });
+      return;
+    }
+    const runId = `client-replay-${compactDate(new Date())}`;
+    const record = await runClientReplay(profile, {
+      ...body,
+      requestId: runId,
+    });
+    const summary = analyzeClientLogs([record], {
+      runId,
+      sourceName: body.sourceName || `真实客户端请求回放 / ${profile.name}`,
+    });
+    const artifactFiles = await saveRunArtifacts(runId, {
+      summary: {
+        ...summary,
+        records: undefined,
+      },
+      records: summary.records,
+    });
+    summary.workspaceDir = artifactFiles.workspaceDir;
+    summary.rawJsonPath = artifactFiles.rawJsonPath;
+    const reportMarkdown = formatClientReplayReport(summary);
+    const reportFiles = await saveReportFiles(runId, reportMarkdown, "NexusAPI 真实客户端请求回放报告");
+    const { records: normalizedRecords, ...safeSummary } = summary;
+    await appendJsonLine(TEST_RUNS_FILE, {
+      ...safeSummary,
+      reportPath: reportFiles.markdownPath,
+      reportHtmlPath: reportFiles.htmlPath,
+    });
+    sendJson(res, 200, {
+      ...safeSummary,
+      recordCount: normalizedRecords.length,
+      reportPath: reportFiles.markdownPath,
+      reportHtmlPath: reportFiles.htmlPath,
+      reportMarkdown,
+    });
     return;
   }
 
@@ -213,6 +434,20 @@ async function handleApi(req, res) {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/api/tests/admission") {
+    const body = await readJson(req);
+    const result = await runAdmissionTest(body);
+    sendJson(res, 200, result);
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/tests/batch-admission") {
+    const body = await readJson(req);
+    const result = await runBatchAdmissionTest(body);
+    sendJson(res, 200, result);
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/tests/stability") {
     const body = await readJson(req);
     const result = await runStabilityTest(body);
@@ -299,6 +534,12 @@ async function logErrorSafely(entry) {
     console.error("failed to write technical error log", error);
     return "err-log-write-failed";
   }
+}
+
+function normalizeReplayLimit(value) {
+  const number = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(number)) return 3;
+  return Math.min(10, Math.max(1, number));
 }
 
 async function serveStatic(req, res) {

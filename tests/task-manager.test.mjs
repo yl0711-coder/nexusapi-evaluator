@@ -29,6 +29,7 @@ test("task manager records completed tasks without leaking full payloads", async
         reportPath: "/tmp/report.md",
         reportMarkdown: "# very long report",
       }),
+      runBatchAdmissionTest: async () => ({}),
       runBatchStabilityTest: async () => ({}),
       runScenarioTest: async () => ({}),
     });
@@ -66,6 +67,7 @@ test("task manager cancels running tasks through the task context", async () => 
         await waitFor(() => context.task.cancelRequested);
         assertTaskNotCancelled(context);
       },
+      runBatchAdmissionTest: async () => ({}),
       runBatchStabilityTest: async () => ({}),
       runScenarioTest: async () => ({}),
     });
@@ -81,6 +83,41 @@ test("task manager cancels running tasks through the task context", async () => 
     const raw = await readFile(taskEventsFile, "utf8");
     assert.match(raw, /"event":"cancel_requested"/);
     assert.match(raw, /"event":"cancelled"/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("task manager runs batch admission tasks", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "nexusapi-task-admission-batch-test-"));
+  try {
+    const taskEventsFile = join(dir, "task-events.jsonl");
+    const manager = createTaskManager({
+      taskEventsFile,
+      ...normalizers,
+      runStabilityTest: async () => ({}),
+      runBatchAdmissionTest: async (payload) => ({
+        batchId: "admission-batch-ok",
+        profileCount: payload.profileIds.length,
+        results: [{ profileName: "Candidate A", score: 90 }],
+      }),
+      runBatchStabilityTest: async () => ({}),
+      runScenarioTest: async () => ({}),
+    });
+
+    const task = await manager.createTask("batch-admission", {
+      profileIds: ["a", "b"],
+      packageLevel: "standard",
+    });
+
+    await waitFor(() => task.status === "completed");
+    assert.equal(task.totalUnits, 2);
+    assert.equal(task.result.batchId, "admission-batch-ok");
+    assert.equal(task.result.profileCount, 2);
+
+    const raw = await readFile(taskEventsFile, "utf8");
+    assert.match(raw, /"type":"batch-admission"/);
+    assert.match(raw, /"profileCount":2/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -103,6 +140,7 @@ test("task manager separates user-facing task errors from technical logs", async
       runStabilityTest: async () => {
         throw new Error("technical stack detail");
       },
+      runBatchAdmissionTest: async () => ({}),
       runBatchStabilityTest: async () => ({}),
       runScenarioTest: async () => ({}),
     });

@@ -570,6 +570,12 @@ code {
   margin-bottom: 18px;
 }
 
+.panel-divider {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 22px 0;
+}
+
 .collapsible-panel {
   background: rgba(14, 24, 40, 0.58);
 }
@@ -940,6 +946,69 @@ button.quiet-action {
   margin-top: 3px;
 }
 
+.comparison-list {
+  display: grid;
+  gap: 14px;
+}
+
+.comparison-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(8, 17, 31, 0.46);
+  padding: 14px;
+}
+
+.comparison-card h4 {
+  margin: 4px 0 0;
+  font-size: 18px;
+}
+
+.comparison-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  color: var(--muted);
+}
+
+.comparison-summary span,
+.comparison-summary strong {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.comparison-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.comparison-table th,
+.comparison-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.comparison-table th {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.comparison-table td {
+  color: var(--text);
+}
+
 .ok-card {
   border-color: rgba(98, 219, 167, 0.42);
 }
@@ -1007,6 +1076,94 @@ button.quiet-action {
 .plain-result-card p {
   margin: 0;
   color: var(--muted);
+}
+
+.admission-result-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.admission-result {
+  display: grid;
+  gap: 16px;
+}
+
+.admission-hero {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(8, 17, 31, 0.46);
+  padding: 16px;
+}
+
+.admission-hero div {
+  border-right: 1px solid var(--line);
+  padding-right: 14px;
+}
+
+.admission-hero div:last-child {
+  border-right: 0;
+}
+
+.admission-hero span,
+.admission-hero small,
+.admission-decision span {
+  display: block;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.admission-hero strong {
+  display: block;
+  margin: 5px 0;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.admission-decision,
+.admission-cases,
+.admission-files {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(8, 17, 31, 0.38);
+  padding: 16px;
+}
+
+.admission-decision strong {
+  display: block;
+  margin: 6px 0;
+  font-size: 20px;
+}
+
+.admission-decision p,
+.admission-files p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.admission-cases h4,
+.admission-files h4 {
+  margin: 0 0 12px;
+}
+
+.admission-case-row {
+  grid-template-columns: minmax(220px, 1fr) 90px 90px 110px minmax(150px, 0.8fr);
+}
+
+.admission-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.markdown-report {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(5, 12, 24, 0.4);
+  max-height: 520px;
+  overflow: auto;
+  padding: 16px;
 }
 
 .split-actions {
@@ -1404,6 +1561,7 @@ button.danger {
 
   .metric-grid,
   .guide-grid,
+  .admission-hero,
   .standard-flow,
   .form-grid,
   .summary-grid,
@@ -1443,5 +1601,16 @@ button.danger {
   .plain-card {
     grid-template-columns: 1fr;
     min-width: 0;
+  }
+
+  .admission-hero div {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 0 0 12px;
+  }
+
+  .admission-hero div:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
   }
 }

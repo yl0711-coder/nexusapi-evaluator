@@ -1,4 +1,5 @@
 import { maskScenario } from "./profile-store.mjs";
+import { estimateProfileRunEconomics } from "./costing.mjs";
 import {
   buildErrorDiagnostics,
   buildRecommendation,
@@ -17,11 +18,15 @@ export function buildStabilitySummary({ runId, profile, records, rounds, concurr
   const successRate = records.length > 0 ? successRecords.length / records.length : 0;
   const p95TotalMs = percentile(totalTimes, 0.95);
   const recommendation = buildRecommendation(successRate, p95TotalMs, errorCounts);
+  const inputTokens = sumNullable(records.map((item) => item.inputTokens));
+  const outputTokens = sumNullable(records.map((item) => item.outputTokens));
+  const economics = estimateProfileRunEconomics(profile, { inputTokens, outputTokens });
 
   return {
     runId,
     profileId: profile.id,
     profileName: profile.name,
+    profileRole: profile.role || "target",
     provider: profile.provider,
     model: profile.defaultModel,
     protocol: profile.protocol,
@@ -43,8 +48,9 @@ export function buildStabilitySummary({ runId, profile, records, rounds, concurr
     minTotalMs: totalTimes.length ? Math.min(...totalTimes) : null,
     maxTotalMs: totalTimes.length ? Math.max(...totalTimes) : null,
     avgOutputChars: Math.round(mean(outputChars) || 0),
-    inputTokens: sumNullable(records.map((item) => item.inputTokens)),
-    outputTokens: sumNullable(records.map((item) => item.outputTokens)),
+    inputTokens,
+    outputTokens,
+    ...economics,
     errorCounts,
     diagnostics: buildErrorDiagnostics(errorCounts),
     recommendation,
@@ -59,6 +65,9 @@ export function buildScenarioProfileSummary(profile, records) {
   const successRate = records.length > 0 ? successRecords.length / records.length : 0;
   const avgQualityScore = Math.round(mean(qualityScores) || 0);
   const errorCounts = countErrors(failedRecords);
+  const inputTokens = sumNullable(records.map((record) => record.inputTokens));
+  const outputTokens = sumNullable(records.map((record) => record.outputTokens));
+  const economics = estimateProfileRunEconomics(profile, { inputTokens, outputTokens });
   const scenarioGroups = groupBy(records, (record) => record.scenarioId);
   const scenarios = Object.entries(scenarioGroups).map(([scenarioId, items]) => {
     const okItems = items.filter((item) => item.success);
@@ -83,6 +92,7 @@ export function buildScenarioProfileSummary(profile, records) {
   return {
     profileId: profile.id,
     profileName: profile.name,
+    profileRole: profile.role || "target",
     provider: profile.provider,
     model: profile.defaultModel,
     protocol: profile.protocol,
@@ -94,6 +104,9 @@ export function buildScenarioProfileSummary(profile, records) {
     avgTotalMs: Math.round(mean(totalTimes) || 0),
     p95TotalMs: percentile(totalTimes, 0.95),
     avgQualityScore,
+    inputTokens,
+    outputTokens,
+    ...economics,
     errorCounts,
     diagnostics: buildErrorDiagnostics(errorCounts),
     recommendation: buildScenarioRecommendation(successRate, avgQualityScore, percentile(totalTimes, 0.95), errorCounts),

@@ -21,9 +21,10 @@
           <span>推荐流程</span>
           <button class="nav-button active" type="button" data-page="dashboard">总览</button>
           <button class="nav-button" type="button" data-page="profiles">1. API 配置</button>
-          <button class="nav-button" type="button" data-page="standard-eval">2. 标准评测</button>
-          <button class="nav-button" type="button" data-page="reports">3. 报告中心</button>
-          <button class="nav-button" type="button" data-page="handoff">4. 测试交付</button>
+          <button class="nav-button" type="button" data-page="admission-test">2. 准入评测</button>
+          <button class="nav-button" type="button" data-page="standard-eval">3. 标准评测</button>
+          <button class="nav-button" type="button" data-page="reports">4. 报告中心</button>
+          <button class="nav-button" type="button" data-page="handoff">5. 测试交付</button>
         </div>
         <div class="nav-group">
           <span>高级测试</span>
@@ -59,21 +60,22 @@
               <p class="eyebrow">本地模型与渠道评测</p>
               <h1>按推荐流程测 API，最后交付一份能看懂的结论。</h1>
               <p>
-                普通操作员优先使用“标准评测”。它会自动跑通连通、稳定性和少量场景测试。
+                普通操作员先跑“准入评测”，通过后再使用“标准评测”。标准评测会自动跑通连通、稳定性和少量场景测试。
                 高级测试只在需要单独复测时使用。所有数据只保存在本机 <code>NexusAPI数据</code>。
               </p>
               <div class="hero-actions">
                 <button class="primary" type="button" data-go-page="profiles">开始配置 API</button>
-                <button class="secondary" type="button" data-go-page="standard-eval">已有配置，去标准评测</button>
+                <button class="secondary" type="button" data-go-page="admission-test">已有配置，去准入评测</button>
                 <button class="secondary" type="button" data-go-page="manual">查看操作手册</button>
                 <button id="load-demo-data" class="secondary" type="button">查看演示数据</button>
               </div>
             </div>
             <aside class="hero-next-card">
               <span>推荐用法</span>
-              <strong>不懂怎么测，就只走这 4 步</strong>
+              <strong>不懂怎么测，就只走这 5 步</strong>
               <ol>
                 <li>配置 API</li>
+                <li>运行准入评测</li>
                 <li>运行标准评测</li>
                 <li>查看报告中心</li>
                 <li>复制交付模板</li>
@@ -94,7 +96,7 @@
             <article class="metric-card">
               <span>测试报告</span>
               <strong id="test-run-count">0</strong>
-              <small>标准 / 稳定 / 场景记录</small>
+              <small>准入 / 标准 / 稳定 / 场景记录</small>
             </article>
           </div>
 
@@ -141,20 +143,26 @@
                 <small>填写 URL、Key、模型名和协议。</small>
                 <button class="secondary" type="button" data-go-page="profiles">去配置</button>
               </article>
-              <article class="workflow-step" data-step="standard">
+              <article class="workflow-step" data-step="admission">
                 <span>2</span>
+                <strong>准入评测</strong>
+                <small>先检查协议、结构、工具调用和基础行为。</small>
+                <button class="secondary" type="button" data-go-page="admission-test">去准入</button>
+              </article>
+              <article class="workflow-step" data-step="standard">
+                <span>3</span>
                 <strong>标准评测</strong>
                 <small>一键跑快速测试、3 轮稳定性和少量场景。</small>
                 <button class="secondary" type="button" data-go-page="standard-eval">去评测</button>
               </article>
               <article class="workflow-step" data-step="reports">
-                <span>3</span>
+                <span>4</span>
                 <strong>查看报告</strong>
                 <small>先看极简结论，再看失败原因和报告路径。</small>
                 <button class="secondary" type="button" data-go-page="reports">看记录</button>
               </article>
               <article class="workflow-step" data-step="handoff">
-                <span>4</span>
+                <span>5</span>
                 <strong>交付结论</strong>
                 <small>复制交付模板，把结果、异常和附件一次说清楚。</small>
                 <button class="secondary" type="button" data-go-page="handoff">去交付</button>
@@ -163,6 +171,103 @@
             <div class="advanced-note">
               <strong>高级测试什么时候用？</strong>
               <span>标准评测不够时，再单独使用快速测试、稳定性测试或场景测试做复测。普通操作员默认不需要进入高级测试。</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="admission-test">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">接入前初筛</p>
+              <h2>模型准入评测</h2>
+              <p class="section-desc">先判断这个渠道是否值得继续测试。它会检查连通、结构化输出、标称一致性、工具调用、流式结构、基础编程和行为一致性，生成准入等级和报告。</p>
+            </div>
+          </div>
+
+          <details class="helper-details">
+            <summary>查看准入等级说明</summary>
+            <div class="guide-grid compact-grid">
+              <article class="guide-card">
+                <span>A / B</span>
+                <strong>可以继续复测</strong>
+                <p>基础结构和行为正常，可以进入稳定性、编程场景和成本测试。</p>
+              </article>
+              <article class="guide-card">
+                <span>C</span>
+                <strong>需要观察</strong>
+                <p>可用但存在结构、工具调用或耗时问题，建议先复核配置再测。</p>
+              </article>
+              <article class="guide-card">
+                <span>D / E / F / X</span>
+                <strong>暂不开放</strong>
+                <p>存在明显错误、疑似协议不匹配、上游波动或不可用，需要先排查。</p>
+              </article>
+            </div>
+          </details>
+
+          <form id="admission-test-form" class="panel form-grid">
+            <label>
+              被测 API
+              <select name="profileId" id="admission-profile-select"></select>
+            </label>
+            <label>
+              测试包
+              <select name="packageLevel">
+                <option value="quick">快速准入：5 次请求</option>
+                <option value="standard" selected>标准准入：11-12 次请求</option>
+                <option value="deep">深度准入：12-13 次请求</option>
+              </select>
+              <small class="field-hint">新渠道首次建议选标准准入。快速准入用于低成本复核，深度准入会多做轻量长上下文。</small>
+            </label>
+            <button id="admission-submit" class="primary wide" type="submit">开始准入评测</button>
+          </form>
+
+          <div class="panel">
+            <h3>执行前预估</h3>
+            <div id="admission-estimate" class="estimate-box">选择参数后会显示大概会消耗多少额度。</div>
+          </div>
+
+          <details class="helper-details">
+            <summary>批量准入对比</summary>
+            <p class="field-hint">用于一次性对比多个候选渠道。它会按同一测试包逐个执行准入评测，适合接入前筛选 2-5 个同模型渠道。</p>
+            <form id="admission-batch-form" class="form-grid">
+              <label>
+                被测 API
+                <select name="profileIds" id="admission-batch-profile-select" multiple size="6"></select>
+                <small class="field-hint">按住 Command/Ctrl 可多选。建议先选少量候选，避免一次消耗过多额度。</small>
+              </label>
+              <label>
+                测试包
+                <select name="packageLevel">
+                  <option value="quick">快速准入：每个 API 5 次请求</option>
+                  <option value="standard" selected>标准准入：每个 API 11-12 次请求</option>
+                  <option value="deep">深度准入：每个 API 12-13 次请求</option>
+                </select>
+              </label>
+              <label>
+                同时测试 API 数
+                <input type="number" name="maxParallelProfiles" value="1" min="1" max="3" />
+                <small class="field-hint">准入评测会真实消耗额度。默认 1 个一个跑，避免并发过高影响判断。</small>
+              </label>
+              <button id="admission-batch-submit" class="secondary wide" type="submit">开始批量准入对比</button>
+            </form>
+            <div id="admission-batch-estimate" class="estimate-box">选择 API 后会显示大概会消耗多少额度。</div>
+            <div id="admission-batch-progress" class="progress-panel hidden">
+              <span>任务进度</span>
+              <progress max="100" value="0"></progress>
+              <small>等待任务开始。</small>
+              <button id="cancel-admission-batch-task" class="secondary" type="button">取消当前任务</button>
+            </div>
+            <pre id="admission-batch-result" class="result-box report-box">批量准入完成后会生成汇总报告，并进入报告中心排行榜。</pre>
+          </details>
+
+          <div class="panel">
+            <div class="section-header compact">
+              <h3>准入结果</h3>
+              <button class="secondary" type="button" data-go-page="reports">去报告中心</button>
+            </div>
+            <div id="admission-result" class="admission-result-shell">
+              <p class="muted">等待评测。</p>
             </div>
           </div>
         </section>
@@ -356,9 +461,10 @@
                   角色
                   <select name="role">
                     <option value="target">被测 API</option>
+                    <option value="baseline">可信基线 API</option>
                     <option value="judge">主 API / 评分 API</option>
                   </select>
-                  <small class="field-hint">当前主要使用“被测 API”。主 API 预留给后续 AI 评分。</small>
+                  <small class="field-hint">官方 API 或长期稳定渠道可设为“可信基线 API”，用于后续横向对比。</small>
                 </label>
                 <label>
                   供应商
@@ -385,6 +491,26 @@
                   超时毫秒
                   <input name="timeoutMs" type="number" value="60000" min="1000" />
                   <small class="field-hint">复杂任务建议 60000-120000，太短容易误判超时。</small>
+                </label>
+                <label>
+                  输入成本单价
+                  <input name="inputPricePerMTokens" type="number" min="0" step="0.0001" placeholder="例如 4.5" />
+                  <small class="field-hint">元 / 1M tokens。填写上游结算价，用于成本估算。</small>
+                </label>
+                <label>
+                  输出成本单价
+                  <input name="outputPricePerMTokens" type="number" min="0" step="0.0001" placeholder="例如 22.5" />
+                  <small class="field-hint">元 / 1M tokens。填写上游结算价。</small>
+                </label>
+                <label>
+                  输入售卖单价
+                  <input name="inputSellPricePerMTokens" type="number" min="0" step="0.0001" placeholder="例如 5" />
+                  <small class="field-hint">元 / 1M tokens。填写本站对外售卖价，用于毛利估算。</small>
+                </label>
+                <label>
+                  输出售卖单价
+                  <input name="outputSellPricePerMTokens" type="number" min="0" step="0.0001" placeholder="例如 25" />
+                  <small class="field-hint">元 / 1M tokens。可不填，不填则不计算收入和毛利。</small>
                 </label>
                 <label class="wide">
                   备注
@@ -795,9 +921,82 @@
             </div>
           </div>
           <div class="panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow">同模型对比</p>
+                <h3>多渠道对比矩阵</h3>
+              </div>
+            </div>
+            <div id="model-comparison-list" class="comparison-list">
+              <p class="muted">同一模型有多个候选或可信基线时，这里会显示对比矩阵。</p>
+            </div>
+          </div>
+          <div class="panel">
             <h3>最近测试报告</h3>
             <div id="test-run-list" class="table"></div>
           </div>
+          <details class="panel collapsible-panel">
+            <summary>真实客户端日志分析</summary>
+            <p class="muted">把 Claude Code、Codex、Gemini CLI 等本地代理日志粘贴进来，生成脱敏分析报告。适合复盘 524、504、client_gone、Content block not found 等真实使用问题。</p>
+            <form id="client-log-form" class="form-grid">
+              <label>
+                来源名称
+                <input name="sourceName" placeholder="例如 Claude Code 2026-06-01 复盘" />
+              </label>
+              <label>
+                上游名称
+                <input name="providerName" placeholder="例如 Kiro、wf、上游 A" />
+                <small class="field-hint">生成给上游看的证据包时使用；普通日志分析可不填。</small>
+              </label>
+              <label>
+                从文件导入
+                <input id="client-log-file" type="file" accept=".log,.txt,.json,.jsonl,application/json,text/plain" />
+                <small class="field-hint">文件只在本机读取，不会上传到其他服务。适合导入代理日志、Nginx 日志或 JSONL。</small>
+              </label>
+              <label>
+                本机日志目录
+                <input name="directoryPath" placeholder="/Users/yl/Documents/work/AI孵化器/Log/NexusAPI/API Error/proxy-..." />
+                <small class="field-hint">读取该目录下最近的 .log/.txt/.json/.jsonl 文件，默认最多 30 个文件。</small>
+              </label>
+              <label class="wide">
+                日志内容
+                <textarea name="logText" rows="9" placeholder="粘贴 JSONL、代理日志、Nginx 访问日志或 new-api 错误日志。报告会自动脱敏。"></textarea>
+              </label>
+              <button id="client-log-directory-import" class="secondary wide" type="button">从本机目录读取日志</button>
+              <button id="client-log-submit" class="primary wide" type="submit">生成客户端日志分析报告</button>
+              <button id="client-evidence-submit" class="secondary wide" type="button">生成上游排查证据包</button>
+            </form>
+            <pre id="client-log-result" class="result-box report-box">粘贴日志后生成报告，报告会进入“最近测试报告”。</pre>
+            <hr class="panel-divider" />
+            <form id="client-replay-form" class="form-grid">
+              <div class="wide">
+                <p class="eyebrow">单条请求回放</p>
+                <h3>用当前 API 配置复现一条真实客户端请求</h3>
+                <p class="section-desc">会真实消耗额度。请只粘贴脱敏后的单条请求 JSON，工具会使用所选 API 当前保存的 Key 发起请求，不会使用日志里的 Key。</p>
+              </div>
+              <label>
+                回放使用的 API
+                <select name="profileId" id="client-replay-profile-select"></select>
+              </label>
+              <label>
+                来源名称
+                <input name="sourceName" placeholder="例如 Claude Code 524 复现" />
+              </label>
+              <label>
+                批量回放上限
+                <input name="maxReplayCount" type="number" min="1" max="10" value="3" />
+                <small class="field-hint">批量回放会真实消耗额度，默认最多 3 条，最高 10 条。</small>
+              </label>
+              <label class="wide">
+                单条请求 JSON
+                <textarea name="requestJson" rows="8" placeholder='例如 {"path":"/v1/messages","body":{"model":"claude-opus-4-7","max_tokens":512,"messages":[{"role":"user","content":"hello"}]}}'></textarea>
+              </label>
+              <button id="client-replay-extract" class="secondary wide" type="button">从上方日志提取第一条可回放请求</button>
+              <button id="client-replay-submit" class="primary wide" type="submit">回放这条请求</button>
+              <button id="client-replay-batch" class="secondary wide" type="button">批量回放上方日志候选请求</button>
+            </form>
+            <pre id="client-replay-result" class="result-box report-box">回放会真实请求 API，请确认成本和内容后再执行。</pre>
+          </details>
           <details class="panel collapsible-panel">
             <summary>最近任务状态</summary>
             <p class="muted">用于判断上次测试是否完成、失败、取消或因程序关闭而中断。</p>

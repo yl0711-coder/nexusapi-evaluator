@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { PROFILES_FILE } from "./paths.mjs";
+import { normalizePricePerMillion } from "./costing.mjs";
 import { buildApiKeyRef, getSecretStorageName, saveProfileApiKey } from "./secret-store.mjs";
 import { requiredString } from "./utils.mjs";
 
@@ -18,7 +19,7 @@ export async function normalizeProfile(body, existingProfile = null) {
   const keyInfo = apiKey ? await saveProfileApiKey(id, apiKey) : null;
   return {
     id,
-    role: body.role === "judge" ? "judge" : "target",
+    role: normalizeProfileRole(body.role),
     name: requiredString(body.name, "名称"),
     provider: requiredString(body.provider, "供应商"),
     baseUrl: requiredString(body.baseUrl, "Base URL").replace(/\/+$/, ""),
@@ -31,6 +32,10 @@ export async function normalizeProfile(body, existingProfile = null) {
     throughNexusAPI: Boolean(body.throughNexusAPI),
     maxTokens: Number(body.maxTokens || 512),
     timeoutMs: Number(body.timeoutMs || 60000),
+    inputPricePerMTokens: normalizePricePerMillion(body.inputPricePerMTokens),
+    outputPricePerMTokens: normalizePricePerMillion(body.outputPricePerMTokens),
+    inputSellPricePerMTokens: normalizePricePerMillion(body.inputSellPricePerMTokens),
+    outputSellPricePerMTokens: normalizePricePerMillion(body.outputSellPricePerMTokens),
     notes: String(body.notes || "").trim(),
     createdAt: existingProfile?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -70,7 +75,7 @@ export async function normalizeImportedProfiles(body, currentProfiles = []) {
     const keyInfo = apiKey ? await saveProfileApiKey(id, apiKey) : null;
     profiles.push({
       id,
-      role: item.role === "judge" ? "judge" : "target",
+      role: normalizeProfileRole(item.role),
       name: requiredString(item.name, "名称"),
       provider: requiredString(item.provider, "供应商"),
       baseUrl: requiredString(item.baseUrl, "Base URL").replace(/\/+$/, ""),
@@ -83,6 +88,10 @@ export async function normalizeImportedProfiles(body, currentProfiles = []) {
       throughNexusAPI: Boolean(item.throughNexusAPI),
       maxTokens: Number(item.maxTokens || 512),
       timeoutMs: Number(item.timeoutMs || 60000),
+      inputPricePerMTokens: normalizePricePerMillion(item.inputPricePerMTokens),
+      outputPricePerMTokens: normalizePricePerMillion(item.outputPricePerMTokens),
+      inputSellPricePerMTokens: normalizePricePerMillion(item.inputSellPricePerMTokens),
+      outputSellPricePerMTokens: normalizePricePerMillion(item.outputSellPricePerMTokens),
       notes: String(item.notes || "").trim(),
       createdAt: item.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -165,6 +174,12 @@ async function migrateProfileSecrets(profiles) {
     await saveProfiles(migrated);
   }
   return migrated;
+}
+
+function normalizeProfileRole(role) {
+  if (role === "judge") return "judge";
+  if (role === "baseline") return "baseline";
+  return "target";
 }
 
 function stripProfileSecret(profile) {

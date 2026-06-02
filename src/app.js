@@ -4,12 +4,15 @@ import {
   renderMarkdown,
   toast,
 } from "./client-utils.js";
+import { renderAdmissionResult } from "./admission-view.js";
 import { installClientErrorReporter } from "./client-error-reporter.js";
 import { copyText } from "./clipboard.js";
 import { api, cancelRemoteTask } from "./api-client.js";
 import { createConfirmDialog } from "./confirm-dialog.js";
 import {
   confirmExecution,
+  estimateAdmissionBatchCost,
+  estimateAdmissionCost,
   estimateStandardCost,
   estimateBatchCost,
   estimateScenarioCost,
@@ -18,6 +21,9 @@ import {
 import { renderDeliveryPanels } from "./delivery-panel.js";
 import {
   formatBatchResult,
+  formatBatchAdmissionResult,
+  formatClientLogAnalysisResult,
+  formatSupplierEvidenceResult,
   formatScenarioResult,
   formatStabilityResult,
 } from "./formatters.js";
@@ -96,6 +102,17 @@ const standardEvalResult = requireElement("#standard-eval-result");
 const standardNextActions = requireElement("#standard-next-actions");
 const standardEvalProgress = requireElement("#standard-eval-progress");
 const standardTaskProgress = requireElement("#standard-task-progress");
+const admissionTestForm = requireElement("#admission-test-form");
+const admissionProfileSelect = requireElement("#admission-profile-select");
+const admissionSubmit = requireElement("#admission-submit");
+const admissionEstimate = requireElement("#admission-estimate");
+const admissionResult = requireElement("#admission-result");
+const admissionBatchForm = requireElement("#admission-batch-form");
+const admissionBatchProfileSelect = requireElement("#admission-batch-profile-select");
+const admissionBatchSubmit = requireElement("#admission-batch-submit");
+const admissionBatchEstimate = requireElement("#admission-batch-estimate");
+const admissionBatchProgress = requireElement("#admission-batch-progress");
+const admissionBatchResult = requireElement("#admission-batch-result");
 const stabilityTestForm = requireElement("#stability-test-form");
 const stabilityProfileSelect = requireElement("#stability-profile-select");
 const stabilitySubmit = requireElement("#stability-submit");
@@ -111,6 +128,18 @@ const scenarioCaseSelect = requireElement("#scenario-case-select");
 const scenarioSubmit = requireElement("#scenario-submit");
 const scenarioTestResult = requireElement("#scenario-test-result");
 const testRunList = requireElement("#test-run-list");
+const clientLogForm = requireElement("#client-log-form");
+const clientLogSubmit = requireElement("#client-log-submit");
+const clientEvidenceSubmit = requireElement("#client-evidence-submit");
+const clientLogDirectoryImport = requireElement("#client-log-directory-import");
+const clientLogResult = requireElement("#client-log-result");
+const clientLogFile = requireElement("#client-log-file");
+const clientReplayForm = requireElement("#client-replay-form");
+const clientReplayProfileSelect = requireElement("#client-replay-profile-select");
+const clientReplaySubmit = requireElement("#client-replay-submit");
+const clientReplayResult = requireElement("#client-replay-result");
+const clientReplayExtract = requireElement("#client-replay-extract");
+const clientReplayBatch = requireElement("#client-replay-batch");
 const taskEventList = requireElement("#task-event-list");
 const stabilityTemplate = requireElement("#stability-template");
 const batchTemplate = requireElement("#batch-template");
@@ -129,6 +158,7 @@ const scenarioProgress = requireElement("#scenario-progress");
 const reportInsights = requireElement("#report-insights");
 const plainConclusion = requireElement("#plain-conclusion");
 const rankingList = requireElement("#ranking-list");
+const modelComparisonList = requireElement("#model-comparison-list");
 const handoffSummary = requireElement("#handoff-summary");
 const handoffTemplate = requireElement("#handoff-template");
 const pageHelpContent = requireElement("#page-help-content");
@@ -227,6 +257,7 @@ requireElement("#import-profiles-button").addEventListener("click", () => {
 requireElement("#import-profiles-file").addEventListener("change", profileController.importProfiles);
 requireElement("#cancel-stability-task").addEventListener("click", () => cancelRemoteTask(state, "stability"));
 requireElement("#cancel-batch-task").addEventListener("click", () => cancelRemoteTask(state, "batch"));
+requireElement("#cancel-admission-batch-task").addEventListener("click", () => cancelRemoteTask(state, "admissionBatch"));
 requireElement("#cancel-scenario-task").addEventListener("click", () => cancelRemoteTask(state, "scenario"));
 requireElement("#cancel-standard-task").addEventListener("click", () => cancelRemoteTask(state, "standard"));
 stabilityTemplate.addEventListener("change", applyStabilityTemplate);
@@ -237,10 +268,21 @@ stabilityPromptPreset.addEventListener("change", applyStabilityPromptPreset);
 batchPromptPreset.addEventListener("change", applyBatchPromptPreset);
 scenarioTemplate.addEventListener("change", applyScenarioTemplate);
 profileTemplate.addEventListener("change", applyProfileTemplate);
+clientLogForm.addEventListener("submit", analyzeClientLogs);
+clientEvidenceSubmit.addEventListener("click", generateSupplierEvidence);
+clientLogFile.addEventListener("change", importClientLogFile);
+clientLogDirectoryImport.addEventListener("click", importClientLogDirectory);
+clientReplayExtract.addEventListener("click", extractReplayRequestFromLogs);
+clientReplayForm.addEventListener("submit", replayClientRequest);
+clientReplayBatch.addEventListener("click", replayClientRequestsFromLogs);
 stabilityTestForm.addEventListener("input", updateEstimates);
 batchTestForm.addEventListener("input", updateEstimates);
 scenarioTestForm.addEventListener("input", updateEstimates);
+admissionTestForm.addEventListener("input", updateEstimates);
+admissionBatchForm.addEventListener("input", updateEstimates);
 profileForm.addEventListener("input", renderProfileConfigCheck);
+admissionProfileSelect.addEventListener("change", updateEstimates);
+admissionBatchProfileSelect.addEventListener("change", updateEstimates);
 stabilityProfileSelect.addEventListener("change", updateEstimates);
 batchProfileSelect.addEventListener("change", updateEstimates);
 scenarioProfileSelect.addEventListener("change", updateEstimates);
@@ -299,6 +341,61 @@ createStandardEvalController({
   applyScenarioTemplate,
   scenarioProfileSelect,
   updateEstimates,
+});
+
+admissionTestForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const payload = Object.fromEntries(new FormData(admissionTestForm).entries());
+  payload.modelName = findProfileModelName(payload.profileId);
+  const confirmed = await confirmAction(confirmExecution("模型准入评测", estimateAdmissionCost(payload)));
+  if (!confirmed) {
+    return;
+  }
+
+  admissionSubmit.disabled = true;
+  admissionSubmit.textContent = "准入评测中...";
+  admissionResult.innerHTML = `<p class="muted">正在执行准入评测。请不要关闭窗口。</p>`;
+  try {
+    const result = await api("/api/tests/admission", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    admissionResult.innerHTML = renderAdmissionResult(result);
+    await Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]);
+    toast("准入评测完成。");
+  } catch (error) {
+    admissionResult.innerHTML = `<p class="fail">准入评测失败：${escapeHtml(error.message)}</p>`;
+    toast(error.message, true);
+  } finally {
+    admissionSubmit.disabled = false;
+    admissionSubmit.textContent = "开始准入评测";
+  }
+});
+
+createTaskFormController({
+  form: admissionBatchForm,
+  submitButton: admissionBatchSubmit,
+  resultElement: admissionBatchResult,
+  progressElement: admissionBatchProgress,
+  state,
+  slot: "admissionBatch",
+  taskType: "batch-admission",
+  confirmRun: (payload) => confirmAction(confirmExecution("批量准入对比", estimateAdmissionBatchCost(payload))),
+  preparePayload: (payload) => {
+    const profileIds = requireSelectedValues(admissionBatchProfileSelect, "请至少选择一个被测 API。");
+    return profileIds ? { ...payload, profileIds } : null;
+  },
+  beforeStart: (payload) => {
+    admissionBatchResult.textContent = `正在对 ${payload.profileIds.length} 个 API 执行准入评测。请不要关闭窗口。`;
+  },
+  onSuccess: async (result) => {
+    const copyableSummary = getCopyableReportText(result, formatBatchAdmissionResult(result));
+    admissionBatchResult.textContent = copyableSummary;
+    await Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]);
+    toast("批量准入对比完成。");
+  },
+  failurePrefix: "批量准入对比失败",
+  idleButtonText: "开始批量准入对比",
 });
 
 createTaskFormController({
@@ -383,6 +480,246 @@ createTaskFormController({
   failurePrefix: "场景测试失败",
   idleButtonText: "开始场景测试",
 });
+
+async function analyzeClientLogs(event) {
+  event.preventDefault();
+  const payload = Object.fromEntries(new FormData(clientLogForm).entries());
+  if (!String(payload.logText || "").trim()) {
+    toast("请先粘贴需要分析的客户端日志。", true);
+    return;
+  }
+  clientLogSubmit.disabled = true;
+  clientLogSubmit.textContent = "正在生成报告...";
+  clientLogResult.textContent = "正在解析日志并生成报告。";
+  try {
+    const result = await api("/api/client-logs/analyze", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    clientLogResult.textContent = formatClientLogAnalysisResult(result);
+    await loadTestRuns();
+    renderDeliveryViews();
+    toast("客户端日志分析报告已生成。");
+  } catch (error) {
+    clientLogResult.textContent = `客户端日志分析失败：${error.message}`;
+    toast(error.message, true);
+  } finally {
+    clientLogSubmit.disabled = false;
+    clientLogSubmit.textContent = "生成客户端日志分析报告";
+  }
+}
+
+async function generateSupplierEvidence() {
+  const payload = Object.fromEntries(new FormData(clientLogForm).entries());
+  if (!String(payload.logText || "").trim()) {
+    toast("请先粘贴需要整理的客户端日志。", true);
+    return;
+  }
+  clientEvidenceSubmit.disabled = true;
+  clientEvidenceSubmit.textContent = "正在生成证据包...";
+  clientLogResult.textContent = "正在整理给上游排查使用的脱敏证据包。";
+  try {
+    const result = await api("/api/client-logs/supplier-evidence", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    clientLogResult.textContent = formatSupplierEvidenceResult(result);
+    await loadTestRuns();
+    renderDeliveryViews();
+    toast("上游排查证据包已生成。");
+  } catch (error) {
+    clientLogResult.textContent = `生成上游排查证据包失败：${error.message}`;
+    toast(error.message, true);
+  } finally {
+    clientEvidenceSubmit.disabled = false;
+    clientEvidenceSubmit.textContent = "生成上游排查证据包";
+  }
+}
+
+async function importClientLogFile() {
+  const file = clientLogFile.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    clientLogForm.elements.sourceName.value ||= file.name;
+    clientLogForm.elements.logText.value = text;
+    clientLogResult.textContent = `已导入 ${file.name}，大小 ${Math.round(file.size / 1024)} KB。确认内容后点击“生成客户端日志分析报告”。`;
+  } catch (error) {
+    clientLogResult.textContent = `读取日志文件失败：${error.message}`;
+    toast("读取日志文件失败。", true);
+  }
+}
+
+async function importClientLogDirectory() {
+  const directoryPath = String(clientLogForm.elements.directoryPath.value || "").trim();
+  if (!directoryPath) {
+    toast("请先填写本机日志目录路径。", true);
+    return;
+  }
+  clientLogDirectoryImport.disabled = true;
+  clientLogDirectoryImport.textContent = "正在读取目录...";
+  clientLogResult.textContent = "正在读取本机日志目录。";
+  try {
+    const result = await api("/api/client-logs/import-directory", {
+      method: "POST",
+      body: JSON.stringify({
+        directoryPath,
+        maxFiles: 30,
+      }),
+    });
+    clientLogForm.elements.sourceName.value ||= result.sourceName || "客户端日志目录";
+    clientLogForm.elements.logText.value = result.logText || "";
+    clientLogResult.textContent = [
+      `已读取目录：${result.directoryPath || directoryPath}`,
+      `文件数量：${result.fileCount}`,
+      `读取大小：${Math.round((result.totalBytes || 0) / 1024)} KB`,
+      result.truncated ? "提示：部分文件或内容已按安全上限截断。" : "提示：目录内容已读取完成。",
+      "确认日志内容后，可以生成分析报告或上游排查证据包。",
+    ].join("\n");
+    toast("日志目录读取完成。");
+  } catch (error) {
+    clientLogResult.textContent = `读取日志目录失败：${error.message}`;
+    toast(error.message, true);
+  } finally {
+    clientLogDirectoryImport.disabled = false;
+    clientLogDirectoryImport.textContent = "从本机目录读取日志";
+  }
+}
+
+async function extractReplayRequestFromLogs() {
+  const logText = String(clientLogForm.elements.logText.value || "").trim();
+  if (!logText) {
+    toast("请先粘贴或导入客户端日志。", true);
+    return;
+  }
+  clientReplayExtract.disabled = true;
+  clientReplayExtract.textContent = "正在提取...";
+  try {
+    const result = await api("/api/client-logs/replay-candidates", {
+      method: "POST",
+      body: JSON.stringify({
+        sourceName: clientLogForm.elements.sourceName.value,
+        logText,
+      }),
+    });
+    const candidate = result.candidates?.[0];
+    if (!candidate) {
+      clientReplayResult.textContent = "没有找到可回放请求。请确认日志里包含 request.body 或 body 字段。";
+      toast("没有找到可回放请求。", true);
+      return;
+    }
+    clientReplayForm.elements.requestJson.value = candidate.requestJson;
+    clientReplayForm.elements.sourceName.value ||= `${candidate.client || "客户端"} ${candidate.model || ""} 请求回放`.trim();
+    clientReplayResult.textContent = [
+      "已提取第一条可回放请求。",
+      `Request ID：${candidate.requestId || "-"}`,
+      `客户端：${candidate.client || "-"}`,
+      `模型：${candidate.model || "-"}`,
+      `路径：${candidate.path || "-"}`,
+      `候选数量：${result.count}`,
+      "请确认请求内容和成本后，再点击“回放这条请求”。",
+    ].join("\n");
+    toast("已提取可回放请求。");
+  } catch (error) {
+    clientReplayResult.textContent = `提取可回放请求失败：${error.message}`;
+    toast(error.message, true);
+  } finally {
+    clientReplayExtract.disabled = false;
+    clientReplayExtract.textContent = "从上方日志提取第一条可回放请求";
+  }
+}
+
+async function replayClientRequest(event) {
+  event.preventDefault();
+  const payload = Object.fromEntries(new FormData(clientReplayForm).entries());
+  if (!payload.profileId) {
+    toast("请先选择回放使用的 API。", true);
+    return;
+  }
+  if (!String(payload.requestJson || "").trim()) {
+    toast("请先粘贴单条请求 JSON。", true);
+    return;
+  }
+  const confirmed = await confirmAction({
+    title: "确认回放真实客户端请求",
+    message: "这会真实调用所选 API，并消耗对应额度。请确认请求内容已经脱敏，且成本可接受。",
+    confirmLabel: "确认回放",
+    cancelLabel: "取消",
+  });
+  if (!confirmed) return;
+
+  clientReplaySubmit.disabled = true;
+  clientReplaySubmit.textContent = "正在回放...";
+  clientReplayResult.textContent = "正在请求 API 并生成回放报告。";
+  try {
+    const result = await api("/api/client-logs/replay", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    clientReplayResult.textContent = formatClientLogAnalysisResult(result);
+    await loadTestRuns();
+    renderDeliveryViews();
+    toast("真实客户端请求回放完成。");
+  } catch (error) {
+    clientReplayResult.textContent = `请求回放失败：${error.message}`;
+    toast(error.message, true);
+  } finally {
+    clientReplaySubmit.disabled = false;
+    clientReplaySubmit.textContent = "回放这条请求";
+  }
+}
+
+async function replayClientRequestsFromLogs() {
+  const payload = Object.fromEntries(new FormData(clientReplayForm).entries());
+  const logText = String(clientLogForm.elements.logText.value || "").trim();
+  if (!payload.profileId) {
+    toast("请先选择回放使用的 API。", true);
+    return;
+  }
+  if (!logText) {
+    toast("请先在上方粘贴、导入或读取客户端日志。", true);
+    return;
+  }
+  const maxReplayCount = Math.min(10, Math.max(1, Number.parseInt(String(payload.maxReplayCount || "3"), 10) || 3));
+  const confirmed = await confirmAction({
+    title: "确认批量回放真实客户端请求",
+    message: `这会从上方日志中提取候选请求，并最多真实回放 ${maxReplayCount} 条，会消耗对应额度。建议只用于复现 524、504、Content block not found 等关键问题。`,
+    confirmLabel: "确认批量回放",
+    cancelLabel: "取消",
+  });
+  if (!confirmed) return;
+
+  clientReplayBatch.disabled = true;
+  clientReplayBatch.textContent = "正在批量回放...";
+  clientReplayResult.textContent = "正在提取候选请求并按上限批量回放。";
+  try {
+    const result = await api("/api/client-logs/replay-batch", {
+      method: "POST",
+      body: JSON.stringify({
+        ...payload,
+        sourceName: payload.sourceName || clientLogForm.elements.sourceName.value || "批量真实客户端请求回放",
+        logText,
+        maxReplayCount,
+      }),
+    });
+    clientReplayResult.textContent = [
+      formatClientLogAnalysisResult(result),
+      "",
+      `候选请求数：${result.replayCandidateCount ?? "-"}`,
+      `实际回放数：${result.replayedCount ?? "-"}`,
+      `回放上限：${result.replayLimit ?? maxReplayCount}`,
+    ].join("\n");
+    await loadTestRuns();
+    renderDeliveryViews();
+    toast("批量真实客户端请求回放完成。");
+  } catch (error) {
+    clientReplayResult.textContent = `批量请求回放失败：${error.message}`;
+    toast(error.message, true);
+  } finally {
+    clientReplayBatch.disabled = false;
+    clientReplayBatch.textContent = "批量回放上方日志候选请求";
+  }
+}
 
 await Promise.all([loadHealth(), loadProfiles(), loadScenarios(), loadRequests(), loadTestRuns(), loadTaskEvents()]);
 renderPageHelp("dashboard");
@@ -593,7 +930,16 @@ async function updateProfileKey(profileId) {
 function renderProfileOptions() {
   renderProfileSelectOptions({
     profiles: state.profiles,
-    selects: [standardProfileSelect, quickProfileSelect, stabilityProfileSelect, batchProfileSelect, scenarioProfileSelect],
+    selects: [
+      standardProfileSelect,
+      admissionProfileSelect,
+      admissionBatchProfileSelect,
+      quickProfileSelect,
+      stabilityProfileSelect,
+      batchProfileSelect,
+      scenarioProfileSelect,
+      clientReplayProfileSelect,
+    ],
   });
 }
 
@@ -643,6 +989,7 @@ function renderDeliveryViews() {
     projectInfoSummary,
     reportInsights,
     rankingList,
+    modelComparisonList,
     handoffSummary,
     handoffTemplate,
   });
@@ -783,6 +1130,8 @@ function hydratePromptPresetSelects() {
 }
 
 function updateEstimates() {
+  admissionEstimate.textContent = formatEstimateForAdmission();
+  admissionBatchEstimate.textContent = formatEstimateForAdmissionBatch();
   updateEstimateLabels({
     stabilityForm: stabilityTestForm,
     stabilityEstimate,
@@ -795,6 +1144,27 @@ function updateEstimates() {
     scenarioEstimate,
     scenarios: state.scenarios,
   });
+}
+
+function formatEstimateForAdmission() {
+  const payload = Object.fromEntries(new FormData(admissionTestForm).entries());
+  payload.modelName = findProfileModelName(payload.profileId);
+  return confirmExecution("估算", estimateAdmissionCost(payload)).message;
+}
+
+function formatEstimateForAdmissionBatch() {
+  const payload = Object.fromEntries(new FormData(admissionBatchForm).entries());
+  payload.profileIds = Array.from(admissionBatchProfileSelect.selectedOptions).map((option) => option.value);
+  payload.modelNames = payload.profileIds.map(findProfileModelName);
+  return confirmExecution("估算", estimateAdmissionBatchCost(payload)).message;
+}
+
+function formatEstimateForForm(form, estimateCost) {
+  return confirmExecution("估算", estimateCost(Object.fromEntries(new FormData(form).entries()))).message;
+}
+
+function findProfileModelName(profileId) {
+  return state.profiles.find((profile) => profile.id === profileId)?.defaultModel || "";
 }
 
 async function exportProfiles() {
