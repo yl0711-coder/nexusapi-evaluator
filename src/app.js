@@ -163,9 +163,15 @@ const handoffSummary = requireElement("#handoff-summary");
 const handoffTemplate = requireElement("#handoff-template");
 const pageHelpContent = requireElement("#page-help-content");
 const manualContent = requireElement("#manual-content");
-const profileCount = requireElement("#profile-count");
-const requestCount = requireElement("#request-count");
-const testRunCount = requireElement("#test-run-count");
+const dashboardEmpty = requireElement("#dashboard-empty");
+const dashboardPopulated = requireElement("#dashboard-populated");
+const statChannels = requireElement("#stat-channels");
+const statChannelsChips = requireElement("#stat-channels-chips");
+const statVerdicts = requireElement("#stat-verdicts");
+const statVerdictsChips = requireElement("#stat-verdicts-chips");
+const statTodos = requireElement("#stat-todos");
+const statTodosChips = requireElement("#stat-todos-chips");
+const dashboardRecent = requireElement("#dashboard-recent");
 const nextAction = requireElement("#next-action");
 const workflowSteps = requireElements(".workflow-step");
 const editionBanner = requireElement("#edition-banner");
@@ -852,10 +858,135 @@ async function disableDemoMode() {
 }
 
 function renderDashboard() {
-  profileCount.textContent = String(state.profiles.length);
-  requestCount.textContent = String(state.requests.length);
-  testRunCount.textContent = String(state.testRuns.length);
+  const hasProfiles = state.profiles.length > 0;
+  dashboardEmpty.classList.toggle("hidden", hasProfiles);
+  dashboardPopulated.classList.toggle("hidden", !hasProfiles);
   renderWorkflowGuide();
+  renderDashboardStatus();
+  renderDashboardRecent();
+}
+
+// recommendation.level → 结论展示（pass/watch/fail）
+function dashVerdict(run) {
+  const level = run?.recommendation?.level;
+  if (level === "pass") return { cls: "good", label: "推荐" };
+  if (level === "watch") return { cls: "warn", label: "观察" };
+  if (level === "fail") return { cls: "bad", label: "不推荐" };
+  return null;
+}
+
+function dashTypeLabel(type) {
+  const map = {
+    admission: "准入评测",
+    "batch-admission": "批量准入",
+    "batch-stability": "批量稳定性",
+    scenario: "场景测试",
+    stability: "稳定性测试",
+  };
+  return map[type] || "稳定性测试";
+}
+
+function dashFormatMs(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n)) return "";
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}s` : `${Math.round(n)}ms`;
+}
+
+function dashRelTime(iso) {
+  if (!iso) return "";
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "";
+  const diff = Date.now() - t;
+  if (diff < 60_000) return "刚刚";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
+  return `${Math.floor(diff / 86_400_000)} 天前`;
+}
+
+function renderDashboardStatus() {
+  const targets = state.profiles.filter((p) => p.role === "target");
+  const runs = state.testRuns || []; // newest-first
+
+  // 渠道健康：每个被测渠道按最近一次有结论的运行聚合；无运行 → 未测
+  const latest = new Map();
+  for (const run of runs) {
+    const id = run.profileId || run.profileName;
+    if (id && !latest.has(id)) latest.set(id, run);
+  }
+  let good = 0;
+  let warn = 0;
+  let bad = 0;
+  let idle = 0;
+  for (const p of targets) {
+    const v = dashVerdict(latest.get(p.id) || latest.get(p.name));
+    if (!v) idle += 1;
+    else if (v.cls === "good") good += 1;
+    else if (v.cls === "warn") warn += 1;
+    else bad += 1;
+  }
+  statChannels.innerHTML = `${targets.length} <em>个渠道</em>`;
+  statChannelsChips.innerHTML = targets.length === 0
+    ? `<span class="chip muted-chip"><i style="background:var(--muted)"></i>暂无被测渠道</span>`
+    : [
+        good ? `<span class="chip good"><i></i>${good} 正常</span>` : "",
+        warn ? `<span class="chip warn"><i></i>${warn} 需观察</span>` : "",
+        bad ? `<span class="chip bad"><i></i>${bad} 异常</span>` : "",
+        idle ? `<span class="chip idle muted-chip"><i></i>${idle} 未测</span>` : "",
+      ].filter(Boolean).join("");
+
+  // 最近结论：按 recommendation.level 统计
+  let pass = 0;
+  let watchN = 0;
+  let fail = 0;
+  for (const run of runs) {
+    const v = dashVerdict(run);
+    if (v?.cls === "good") pass += 1;
+    else if (v?.cls === "warn") watchN += 1;
+    else if (v?.cls === "bad") fail += 1;
+  }
+  statVerdicts.innerHTML = `${runs.length} <em>份报告</em>`;
+  statVerdictsChips.innerHTML = runs.length === 0
+    ? `<span class="chip muted-chip"><i style="background:var(--muted)"></i>还没有报告</span>`
+    : `<span class="chip good"><i></i>推荐 ${pass}</span><span class="chip warn"><i></i>观察 ${watchN}</span><span class="chip bad"><i></i>不推荐 ${fail}</span>`;
+
+  // 待办：疑似计费（PALACE tokenAuditFindings 含 high/medium）+ 待复测（最近为观察的渠道）
+  let billing = 0;
+  for (const run of runs) {
+    const findings = run.tokenAuditFindings || [];
+    if (findings.some((f) => f && (f.level === "high" || f.level === "medium"))) billing += 1;
+  }
+  const todoCount = warn + billing;
+  statTodos.innerHTML = `${todoCount} <em>项</em>`;
+  statTodosChips.innerHTML = todoCount === 0
+    ? `<span class="chip muted-chip"><i style="background:var(--muted)"></i>暂无待办</span>`
+    : [
+        warn ? `<span class="chip blue"><i></i>${warn} 待复测</span>` : "",
+        billing ? `<span class="chip bad"><i></i>${billing} 疑似计费异常</span>` : "",
+      ].filter(Boolean).join("");
+}
+
+function renderDashboardRecent() {
+  const runs = (state.testRuns || []).slice(0, 5);
+  if (runs.length === 0) {
+    dashboardRecent.innerHTML = `<p class="muted" style="padding:10px 12px">还没有测试报告。完成一次准入或标准评测后，这里会显示最近结论。</p>`;
+    return;
+  }
+  dashboardRecent.innerHTML = runs.map((run) => {
+    const v = dashVerdict(run);
+    const pill = v
+      ? `<span class="verdict-pill ${v.cls}">${v.label}</span>`
+      : `<span class="verdict-pill idle">—</span>`;
+    const metricBits = [];
+    if (run.successRateText) metricBits.push(escapeHtml(run.successRateText));
+    if (run.p95TotalMs) metricBits.push(`P95 ${dashFormatMs(run.p95TotalMs)}`);
+    return `<div class="rep-row" data-go-page="reports">
+      <div class="who"><b>${escapeHtml(run.profileName || "未命名渠道")}</b><small>${escapeHtml(run.model || "")}</small></div>
+      <div class="kind">${escapeHtml(dashTypeLabel(run.type))}</div>
+      ${pill}
+      <div class="when">${escapeHtml(dashRelTime(run.endedAt || run.startedAt))}</div>
+      <div class="go">›</div>
+    </div>`;
+  }).join("");
 }
 
 function renderWorkflowGuide() {

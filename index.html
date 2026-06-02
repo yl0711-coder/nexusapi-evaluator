@@ -55,122 +55,61 @@
         </div>
 
         <section class="page active" id="dashboard">
-          <div class="hero dashboard-hero">
-            <div>
-              <p class="eyebrow">本地模型与渠道评测</p>
-              <h1>按推荐流程测 API，最后交付一份能看懂的结论。</h1>
-              <p>
-                普通操作员先跑“准入评测”，通过后再使用“标准评测”。标准评测会自动跑通连通、稳定性和少量场景测试。
-                高级测试只在需要单独复测时使用。所有数据只保存在本机 <code>NexusAPI数据</code>。
-              </p>
-              <div class="hero-actions">
-                <button class="primary" type="button" data-go-page="profiles">开始配置 API</button>
-                <button class="secondary" type="button" data-go-page="admission-test">已有配置，去准入评测</button>
-                <button class="secondary" type="button" data-go-page="manual">查看操作手册</button>
-                <button id="load-demo-data" class="secondary" type="button">查看演示数据</button>
+          <div class="dash">
+            <!-- 空状态：无被测配置时显示（app.js 切换）-->
+            <div id="dashboard-empty" class="panel dash-empty hidden">
+              <p class="eyebrow">欢迎使用</p>
+              <h2>三步，测通一个 API 渠道</h2>
+              <p>不用懂技术细节。配置一个渠道，工具会带着你跑完准入和标准评测，最后给你一份能直接看懂、能对外交付的结论。所有数据只保存在本机 <code>NexusAPI数据</code>。</p>
+              <div class="mini-steps">
+                <span class="ms"><b>1</b> 配置 API</span><span class="arrow">→</span>
+                <span class="ms"><b>2</b> 准入评测</span><span class="arrow">→</span>
+                <span class="ms"><b>3</b> 标准评测</span>
               </div>
+              <button class="primary" type="button" data-go-page="profiles">配置第一个 API →</button>
+              <div class="links">先不配置？<button id="load-demo-data" class="linklike" type="button">查看演示数据</button> · <button class="linklike" type="button" data-go-page="manual">打开操作手册</button></div>
             </div>
-            <aside class="hero-next-card">
-              <span>推荐用法</span>
-              <strong>不懂怎么测，就只走这 5 步</strong>
-              <ol>
-                <li>配置 API</li>
-                <li>运行准入评测</li>
-                <li>运行标准评测</li>
-                <li>查看报告中心</li>
-                <li>复制交付模板</li>
-              </ol>
-            </aside>
-          </div>
-          <div class="metric-grid">
-            <article class="metric-card">
-              <span>API 配置</span>
-              <strong id="profile-count">0</strong>
-              <small>主 API / 被测 API</small>
-            </article>
-            <article class="metric-card">
-              <span>最近请求</span>
-              <strong id="request-count">0</strong>
-              <small>本地请求记录</small>
-            </article>
-            <article class="metric-card">
-              <span>测试报告</span>
-              <strong id="test-run-count">0</strong>
-              <small>准入 / 标准 / 稳定 / 场景记录</small>
-            </article>
-          </div>
 
-          <form id="project-info-form" class="panel form-grid project-info-form">
-            <div class="wide">
-              <p class="eyebrow">本次测试信息</p>
-              <h3>建议把项目、批次和测试人写清楚</h3>
-              <p class="section-desc">这一步不是必填。填写后会自动带入交付模板，方便负责人知道这次测的是谁、哪一批、为什么测。</p>
-            </div>
-            <label>
-              项目 / 客户
-              <input name="projectName" placeholder="例如 NexusAPI 渠道复测" />
-            </label>
-            <label>
-              测试批次
-              <input name="batchName" placeholder="例如 2026-05-24 第一批" />
-            </label>
-            <label>
-              测试人员
-              <input name="testerName" placeholder="例如 测试人员 A / 运营同事" />
-            </label>
-            <label>
-              测试目的
-              <input name="testPurpose" placeholder="例如 初筛可用渠道，找出稳定候选" />
-            </label>
-            <button class="secondary wide" type="submit">保存本次测试信息</button>
-          </form>
+            <!-- 常态：有配置时显示 -->
+            <div id="dashboard-populated">
+              <section class="panel pilot">
+                <p class="eyebrow">当前进度</p>
+                <div class="rail">
+                  <div class="workflow-step" data-step="profiles"><span class="bead">1</span><span class="name">配置</span></div>
+                  <span class="connector"></span>
+                  <div class="workflow-step" data-step="admission"><span class="bead">2</span><span class="name">准入</span></div>
+                  <span class="connector"></span>
+                  <div class="workflow-step" data-step="standard"><span class="bead">3</span><span class="name">标准</span></div>
+                  <span class="connector"></span>
+                  <div class="workflow-step" data-step="reports"><span class="bead">4</span><span class="name">报告</span></div>
+                  <span class="connector"></span>
+                  <div class="workflow-step" data-step="handoff"><span class="bead">5</span><span class="name">交付</span></div>
+                </div>
+                <div id="next-action" class="next-action">正在判断当前下一步...</div>
+              </section>
 
-          <div class="panel workflow-panel">
-            <div class="section-header compact">
-              <div>
-                <p class="eyebrow">推荐操作路径</p>
-                <h3>新手按这个顺序执行</h3>
-              </div>
-              <button class="secondary" type="button" data-go-page="manual">查看完整手册</button>
-            </div>
-            <div id="next-action" class="next-action">
-              正在判断当前下一步...
-            </div>
-            <div class="workflow-grid">
-              <article class="workflow-step" data-step="profiles">
-                <span>1</span>
-                <strong>配置 API</strong>
-                <small>填写 URL、Key、模型名和协议。</small>
-                <button class="secondary" type="button" data-go-page="profiles">去配置</button>
-              </article>
-              <article class="workflow-step" data-step="admission">
-                <span>2</span>
-                <strong>准入评测</strong>
-                <small>先检查协议、结构、工具调用和基础行为。</small>
-                <button class="secondary" type="button" data-go-page="admission-test">去准入</button>
-              </article>
-              <article class="workflow-step" data-step="standard">
-                <span>3</span>
-                <strong>标准评测</strong>
-                <small>一键跑快速测试、3 轮稳定性和少量场景。</small>
-                <button class="secondary" type="button" data-go-page="standard-eval">去评测</button>
-              </article>
-              <article class="workflow-step" data-step="reports">
-                <span>4</span>
-                <strong>查看报告</strong>
-                <small>先看极简结论，再看失败原因和报告路径。</small>
-                <button class="secondary" type="button" data-go-page="reports">看记录</button>
-              </article>
-              <article class="workflow-step" data-step="handoff">
-                <span>5</span>
-                <strong>交付结论</strong>
-                <small>复制交付模板，把结果、异常和附件一次说清楚。</small>
-                <button class="secondary" type="button" data-go-page="handoff">去交付</button>
-              </article>
-            </div>
-            <div class="advanced-note">
-              <strong>高级测试什么时候用？</strong>
-              <span>标准评测不够时，再单独使用快速测试、稳定性测试或场景测试做复测。普通操作员默认不需要进入高级测试。</span>
+              <section class="status-grid">
+                <article class="panel stat">
+                  <div class="head"><span>渠道健康</span><span class="ico">📡</span></div>
+                  <div class="big" id="stat-channels">0 <em>个渠道</em></div>
+                  <div class="chips" id="stat-channels-chips"></div>
+                </article>
+                <article class="panel stat">
+                  <div class="head"><span>最近评测结论</span><span class="ico">🎯</span></div>
+                  <div class="big" id="stat-verdicts">0 <em>份报告</em></div>
+                  <div class="chips" id="stat-verdicts-chips"></div>
+                </article>
+                <article class="panel stat">
+                  <div class="head"><span>待办</span><span class="ico">⏳</span></div>
+                  <div class="big" id="stat-todos">0 <em>项</em></div>
+                  <div class="chips" id="stat-todos-chips"></div>
+                </article>
+              </section>
+
+              <section class="panel recent">
+                <div class="sec-head"><h3>最近报告</h3><a data-go-page="reports">全部报告 →</a></div>
+                <div id="dashboard-recent"></div>
+              </section>
             </div>
           </div>
         </section>
@@ -1019,9 +958,27 @@
 
           <div class="panel">
             <h3>本次测试信息</h3>
-            <div id="project-info-summary" class="handoff-meta">
-              <p class="muted">还没有填写项目和批次信息。建议回到总览页补充后再交付。</p>
-            </div>
+            <p class="section-desc">这一步不是必填。填写后会自动带入交付模板，方便负责人知道这次测的是谁、哪一批、为什么测。</p>
+            <form id="project-info-form" class="form-grid project-info-form">
+              <label>
+                项目 / 客户
+                <input name="projectName" placeholder="例如 NexusAPI 渠道复测" />
+              </label>
+              <label>
+                测试批次
+                <input name="batchName" placeholder="例如 2026-05-24 第一批" />
+              </label>
+              <label>
+                测试人员
+                <input name="testerName" placeholder="例如 测试人员 A / 运营同事" />
+              </label>
+              <label>
+                测试目的
+                <input name="testPurpose" placeholder="例如 初筛可用渠道，找出稳定候选" />
+              </label>
+              <button class="secondary wide" type="submit">保存本次测试信息</button>
+            </form>
+            <div id="project-info-summary" class="handoff-meta"></div>
           </div>
 
           <div class="panel">
