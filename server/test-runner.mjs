@@ -40,6 +40,7 @@ import {
   saveReportFiles,
 } from "./reporting.mjs";
 import { buildScenarioProfileSummary, buildScenarioSummary, buildStabilitySummary } from "./summaries.mjs";
+import { recordRequest } from "./db.mjs";
 import { assertTaskNotCancelled, updateTaskProgress } from "./task-manager.mjs";
 import {
   appendJsonLine,
@@ -1399,6 +1400,9 @@ async function finalizeTestRecord({
     // avoid turning request logs into a data dump.
     delete logRecord.responseText;
     await appendJsonLine(REQUEST_LOG_FILE, logRecord);
+    // 双写 SQLite（过渡期）：逐请求全量历史，供统计严谨用。best-effort，
+    // node:sqlite 不可用或出错时静默跳过，JSONL 仍是事实来源。
+    await recordRequest(logRecord);
   }
   return record;
 }

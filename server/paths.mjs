@@ -15,6 +15,7 @@ export const WORKSPACES_DIR = join(DATA_DIR, "工作区");
 export const VAULT_DIR = join(DATA_DIR, ".vault");
 export const RUNTIME_DIR = join(DATA_DIR, ".runtime");
 export const PROFILES_FILE = join(CONFIG_DIR, "profiles.json");
+export const SQLITE_DB_FILE = process.env.NEXUSAPI_SQLITE_DB || join(DATA_DIR, "nexusapi.db");
 export const REQUEST_LOG_FILE = join(LOGS_DIR, "requests.jsonl");
 export const TEST_RUNS_FILE = join(LOGS_DIR, "test-runs.jsonl");
 export const TASK_EVENTS_FILE = join(LOGS_DIR, "task-events.jsonl");
