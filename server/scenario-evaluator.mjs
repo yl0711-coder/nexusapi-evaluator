@@ -1,4 +1,29 @@
 import { parseLooseJson } from "./utils.mjs";
+import { ifevalCheck, scoreBfclToolCall, scoreNeedleRetrieval } from "./benchmark-scorers.mjs";
+
+// 按场景声明的 benchmark scorer 判分（替代关键词启发式）。返回 null 则回退默认启发式。
+function scoreByBenchmark(scenario, record, text) {
+  if (scenario.scorer === "needle") {
+    const r = scoreNeedleRetrieval(text, scenario.needle);
+    return {
+      score: Math.round(r.score * 100),
+      passed: r.retrieved,
+      issues: r.retrieved ? [] : ["未从长上下文中取回关键事实(needle)"],
+      scorer: "needle",
+    };
+  }
+  if (scenario.scorer === "ifeval") {
+    const r = ifevalCheck(text, scenario.instructions || []);
+    const issues = r.results.filter((x) => !x.passed).map((x) => `指令未满足：${x.type}`);
+    return { score: Math.round((r.passRate ?? 0) * 100), passed: r.passed, issues, scorer: "ifeval" };
+  }
+  if (scenario.scorer === "bfcl") {
+    // 依赖工具调用捕获路径（record.toolCall）；未产生工具调用时给出明确 issue。
+    const r = scoreBfclToolCall(scenario.expectedToolCall, record.toolCall);
+    return { score: Math.round(r.score * 100), passed: r.match, issues: r.issues, scorer: "bfcl" };
+  }
+  return null;
+}
 
 export function evaluateScenarioOutput(scenario, record) {
   const issues = [];
@@ -11,6 +36,12 @@ export function evaluateScenarioOutput(scenario, record) {
   }
 
   const text = String(record.responseText || "");
+
+  // 若场景声明了 benchmark scorer（BFCL/NIAH/IFEval），用它判分；否则走下方启发式。
+  if (scenario.scorer) {
+    const benchmark = scoreByBenchmark(scenario, record, text);
+    if (benchmark) return benchmark;
+  }
   let score = 60;
   if (text.length >= scenario.minChars) {
     score += 15;

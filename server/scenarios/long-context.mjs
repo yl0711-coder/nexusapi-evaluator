@@ -1,4 +1,25 @@
+import { buildHaystack } from "../benchmark-scorers.mjs";
+
 export const LONG_CONTEXT_SCENARIOS = [
+  {
+    id: "long-context-needle",
+    name: "长上下文：关键事实检索 (NIAH)",
+    category: "long_context",
+    difficulty: "complex",
+    prompt: [
+      "下面是一份很长的资料，其中藏着一条关键信息。请只回答：资料里提到的项目代号是什么？",
+      "",
+      buildHaystack({
+        filler: "这是一段无关的渠道测试流水记录，用于撑长上下文，不包含要找的信息。",
+        needle: "【重要】本次评测的项目代号是 ORION-7，请记住这个代号。",
+        depthRatio: 0.6,
+        repeats: 60,
+      }),
+    ].join("\n"),
+    minChars: 1,
+    scorer: "needle",
+    needle: "ORION-7",
+  },
   {
     id: "long-context-summary",
     name: "长上下文：资料归纳",

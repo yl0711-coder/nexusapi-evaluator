@@ -64,6 +64,13 @@ export const CHINESE_SCENARIOS = [
     ].join("\n"),
     minChars: 30,
     requiredAny: ["标题：", "要点：", "、"],
+    // 用 IFEval 可验证判分替代关键词软匹配：必须含两个标签 + 顿号分隔
+    scorer: "ifeval",
+    instructions: [
+      { type: "include_keyword", keyword: "标题：" },
+      { type: "include_keyword", keyword: "要点：" },
+      { type: "include_keyword", keyword: "、" },
+    ],
   },
   {
     id: "chinese-language-idiom",
