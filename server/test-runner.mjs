@@ -40,7 +40,7 @@ import {
   saveReportFiles,
 } from "./reporting.mjs";
 import { buildScenarioProfileSummary, buildScenarioSummary, buildStabilitySummary } from "./summaries.mjs";
-import { recordRequest } from "./db.mjs";
+import { recordRequest, recordTestRun } from "./db.mjs";
 import { assertTaskNotCancelled, updateTaskProgress } from "./task-manager.mjs";
 import {
   appendJsonLine,
@@ -127,7 +127,7 @@ export async function runAdmissionTest(body) {
   const reportMarkdown = formatAdmissionReport(summary, records);
   const reportFiles = await saveReportFiles(runId, reportMarkdown, "NexusAPI 模型准入评测报告");
 
-  await appendJsonLine(TEST_RUNS_FILE, {
+  await persistTestRun({
     ...summary,
     type: "admission",
     reportPath: reportFiles.markdownPath,
@@ -214,7 +214,7 @@ export async function runBatchAdmissionTest(body, taskContext = {}) {
   const reportMarkdown = formatBatchAdmissionReport(summary);
   const reportFiles = await saveReportFiles(batchId, reportMarkdown, "NexusAPI 批量准入评测报告");
 
-  await appendJsonLine(TEST_RUNS_FILE, {
+  await persistTestRun({
     ...summary,
     type: "batch-admission",
     reportPath: reportFiles.markdownPath,
@@ -702,7 +702,7 @@ async function runStabilityForProfile({ profile, body, taskContext = {}, onProgr
   const reportMarkdown = formatStabilityReport(summary, records, { aiAnalysis });
   const reportFiles = await saveReportFiles(runId, reportMarkdown, "NexusAPI 稳定性测试报告");
 
-  await appendJsonLine(TEST_RUNS_FILE, {
+  await persistTestRun({
     ...summary,
     reportPath: reportFiles.markdownPath,
     reportHtmlPath: reportFiles.htmlPath,
@@ -799,7 +799,7 @@ export async function runBatchStabilityTest(body, taskContext = {}) {
   const reportMarkdown = formatBatchReport(summary, { aiAnalysis });
   const reportFiles = await saveReportFiles(batchId, reportMarkdown, "NexusAPI 批量稳定性测试总报告");
 
-  await appendJsonLine(TEST_RUNS_FILE, {
+  await persistTestRun({
     ...summary,
     type: "batch-stability",
     reportPath: reportFiles.markdownPath,
@@ -891,7 +891,7 @@ export async function runScenarioTest(body, taskContext = {}) {
   const reportMarkdown = formatScenarioReport(summary, { aiAnalysis });
   const reportFiles = await saveReportFiles(runId, reportMarkdown, "NexusAPI 场景测试报告");
 
-  await appendJsonLine(TEST_RUNS_FILE, {
+  await persistTestRun({
     ...summary,
     reportPath: reportFiles.markdownPath,
     reportHtmlPath: reportFiles.htmlPath,
@@ -1345,6 +1345,12 @@ export function stripHeavyRunResult(result) {
     ...safeResult,
     recordCount: Array.isArray(records) ? records.length : undefined,
   };
+}
+
+// 持久化一条测试运行汇总：写 JSONL（兼容镜像）+ 双写 SQLite（best-effort，过渡期）。
+async function persistTestRun(record) {
+  await appendJsonLine(TEST_RUNS_FILE, record);
+  await recordTestRun(record, { type: record.type || "" });
 }
 
 async function finalizeTestRecord({

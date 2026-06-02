@@ -10,7 +10,10 @@ import {
   getDatabase,
   importRequestsFromJsonl,
   isSqliteAvailable,
+  queryRecentRequests,
+  queryRecentTestRuns,
   queryRequestsByRun,
+  queryRunsByProfile,
   recordRequest,
   recordTestRun,
 } from "../server/db.mjs";
@@ -131,6 +134,48 @@ test("importRequestsFromJsonl backfills history from JSONL lines", async () => {
     const imported = await importRequestsFromJsonl(lines, { path });
     assert.equal(imported, 2);
     assert.equal(await countRequests({ path }), 2);
+  } finally {
+    closeDatabase(path);
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("queryRecentRequests returns newest-first records in original (raw_json) shape", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "nexusapi-db-"));
+  const path = join(dir, "recent.db");
+  try {
+    for (const id of ["a", "b", "c"]) {
+      await recordRequest(makeRecord({ requestId: id }), { path });
+    }
+    const recent = await queryRecentRequests(2, { path });
+    assert.equal(recent.length, 2);
+    assert.equal(recent[0].requestId, "c"); // newest first
+    assert.equal(recent[1].requestId, "b");
+    // 还原成原始记录形状（camelCase），不是 sqlite 列名
+    assert.equal(recent[0].profileName, "甲");
+    assert.equal(recent[0].totalMs, 1500);
+  } finally {
+    closeDatabase(path);
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("queryRecentTestRuns and queryRunsByProfile read back runs", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "nexusapi-db-"));
+  const path = join(dir, "runs2.db");
+  try {
+    await recordTestRun({ runId: "r1", profileId: "p1", profileName: "甲", rounds: 5, successCount: 5, successRate: 1 }, { type: "stability", path });
+    await recordTestRun({ runId: "r2", profileId: "p1", profileName: "甲", rounds: 5, successCount: 3, successRate: 0.6 }, { type: "stability", path });
+    await recordTestRun({ runId: "r3", profileId: "p2", profileName: "乙", rounds: 5, successCount: 4, successRate: 0.8 }, { type: "stability", path });
+
+    const recent = await queryRecentTestRuns(10, { path });
+    assert.equal(recent.length, 3);
+    assert.equal(recent[0].runId, "r3"); // newest first
+
+    const p1Runs = await queryRunsByProfile("p1", { path });
+    assert.equal(p1Runs.length, 2); // 重测信度可用：同 profile 的历次运行
+    assert.equal(p1Runs[0].run_id, "r1");
+    assert.equal(p1Runs[1].run_id, "r2");
   } finally {
     closeDatabase(path);
     await rm(dir, { recursive: true, force: true });

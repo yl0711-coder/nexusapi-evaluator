@@ -18,6 +18,13 @@ import {
   LOCAL_VAULT_FILE,
 } from "./paths.mjs";
 import { readTextTail, safeJson } from "./utils.mjs";
+import {
+  countRequests,
+  importRequestsFromJsonl,
+  isSqliteAvailable,
+  queryRecentRequests,
+  queryRecentTestRuns,
+} from "./db.mjs";
 
 export async function ensureDataDir() {
   await mkdir(DATA_DIR, { recursive: true });
@@ -32,9 +39,29 @@ export async function ensureDataDir() {
   await ensureFile(TEST_RUNS_FILE, "");
   await ensureFile(TASK_EVENTS_FILE, "");
   await ensureFile(ERROR_LOG_FILE, "");
+  await migrateRequestsToSqlite();
+}
+
+// 一次性把现存 requests.jsonl 全量回填进 SQLite（仅当 SQLite 可用且表为空）。
+// best-effort：失败不影响启动。读全文件（非尾部），避免截断历史。
+export async function migrateRequestsToSqlite() {
+  try {
+    if (!(await isSqliteAvailable())) return 0;
+    if ((await countRequests()) > 0) return 0;
+    if (!existsSync(REQUEST_LOG_FILE)) return 0;
+    const raw = await readFile(REQUEST_LOG_FILE, "utf8");
+    const lines = raw.trim().split("\n").filter(Boolean);
+    if (lines.length === 0) return 0;
+    return await importRequestsFromJsonl(lines);
+  } catch {
+    return 0;
+  }
 }
 
 export async function readRecentRequests() {
+  // 优先读 SQLite（全量、不截断）；空或不可用则回退 JSONL 尾部。
+  const fromDb = await queryRecentRequests(50);
+  if (fromDb && fromDb.length > 0) return fromDb;
   return readJsonLines(REQUEST_LOG_FILE, 50).then((items) => items.reverse());
 }
 
@@ -43,6 +70,8 @@ export async function readRecentErrors() {
 }
 
 export async function readRecentTestRuns() {
+  const fromDb = await queryRecentTestRuns(20);
+  if (fromDb && fromDb.length > 0) return fromDb;
   return readJsonLines(TEST_RUNS_FILE, 20).then((items) => items.reverse());
 }
 

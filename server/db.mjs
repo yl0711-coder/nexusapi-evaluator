@@ -11,7 +11,16 @@
 //
 // 过渡策略：与 JSONL 双写，JSONL 暂留作兼容镜像，验证稳定后再切只读路径。
 
+import { join } from "node:path";
 import { SQLITE_DB_FILE } from "./paths.mjs";
+
+// 默认库路径在调用时按 env 解析（而非 import 时固定），保证测试逐用例隔离：
+// 每个测试设自己的 NEXUSAPI_DATA_DIR / NEXUSAPI_SQLITE_DB 就有独立 db。
+function defaultDbPath() {
+  if (process.env.NEXUSAPI_SQLITE_DB) return process.env.NEXUSAPI_SQLITE_DB;
+  if (process.env.NEXUSAPI_DATA_DIR) return join(process.env.NEXUSAPI_DATA_DIR, "nexusapi.db");
+  return SQLITE_DB_FILE;
+}
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS test_requests (
@@ -86,7 +95,7 @@ export async function isSqliteAvailable() {
   return ensureModule();
 }
 
-export async function getDatabase(path = SQLITE_DB_FILE) {
+export async function getDatabase(path = defaultDbPath()) {
   if (!(await ensureModule())) return null;
   const existing = openConnections.get(path);
   if (existing) return existing;
@@ -97,7 +106,7 @@ export async function getDatabase(path = SQLITE_DB_FILE) {
   return db;
 }
 
-export function closeDatabase(path = SQLITE_DB_FILE) {
+export function closeDatabase(path = defaultDbPath()) {
   const db = openConnections.get(path);
   if (db) {
     try {
@@ -188,7 +197,7 @@ export async function recordTestRun(summary, { type = "", path } = {}) {
       type || summary.type || "",
       summary.profileId ?? null,
       summary.profileName ?? null,
-      toInt(summary.sampleSize ?? summary.rounds ?? summary.caseCount),
+      toInt(summary.sampleSize ?? summary.rounds ?? summary.caseCount ?? summary.requestCount),
       toInt(summary.successCount),
       toReal(summary.successRate),
       toReal(ci.ci95Lower),
@@ -216,6 +225,35 @@ export async function countRequests({ path } = {}) {
   const db = await getDatabase(path);
   if (!db) return 0;
   return db.prepare("SELECT COUNT(*) AS n FROM test_requests").get().n;
+}
+
+// 最近 N 条逐请求记录，**newest-first**，还原成原始记录形状（解析 raw_json），
+// 与旧的 readRecentRequests 输出形状一致，UI 无需改动。
+export async function queryRecentRequests(limit = 50, { path } = {}) {
+  const db = await getDatabase(path);
+  if (!db) return null;
+  const rows = db
+    .prepare("SELECT raw_json FROM test_requests ORDER BY id DESC LIMIT ?")
+    .all(Math.max(1, Math.floor(limit)));
+  return rows.map((row) => safeParse(row.raw_json)).filter(Boolean);
+}
+
+export async function queryRecentTestRuns(limit = 20, { path } = {}) {
+  const db = await getDatabase(path);
+  if (!db) return null;
+  const rows = db
+    .prepare("SELECT raw_json FROM test_runs ORDER BY id DESC LIMIT ?")
+    .all(Math.max(1, Math.floor(limit)));
+  return rows.map((row) => safeParse(row.raw_json)).filter(Boolean);
+}
+
+// 同一 profile 的历次运行（重测信度 / 跨运行对比用）。
+export async function queryRunsByProfile(profileId, { path } = {}) {
+  const db = await getDatabase(path);
+  if (!db) return [];
+  return db
+    .prepare("SELECT * FROM test_runs WHERE profile_id = ? ORDER BY id ASC")
+    .all(profileId);
 }
 
 // 把已有 JSONL 逐请求日志回填进 SQLite（一次性迁移/补历史）。返回导入条数。
