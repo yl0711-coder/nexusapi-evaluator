@@ -156,6 +156,17 @@ export function buildProtocolStreamRequest(profile, prompt) {
   };
 }
 
+// 大输出流式专项探针（根因1）：要求 >400 行输出，放大上游双层翻译丢
+// content_block_start 的概率。配合 summarizeStreamStructure 的 content_block_dropped 检测。
+export function buildLargeOutputStreamRequest(profile, lineCount = 450) {
+  const count = Math.max(400, Math.floor(lineCount) || 450);
+  const prompt = [
+    `请输出从 1 到 ${count} 的连续整数列表，每个数字单独占一行。`,
+    "必须逐行完整输出，不要省略、不要用省略号、不要合并成一行、不要附加解释。",
+  ].join("\n");
+  return buildProtocolStreamRequest(profile, prompt);
+}
+
 export function parseSseEvents(raw) {
   const events = [];
   let eventName = "";
@@ -292,16 +303,46 @@ function summarizeClaudeStream(events, raw) {
   let sawMessageStop = false;
   let invalidOrder = false;
 
+  // per-index block 跟踪，覆盖 `Content block not found` 的四根因里的三条：
+  //   根因1 content_block_dropped：delta 落在从未 start 的 index（大输出常触发）。
+  //   根因2 delta_block_mismatch：delta 类型与 block 类型不符（text_delta 打到 tool_use 等）。
+  //   根因3 tool_args_lost：tool_use 的 input_json_delta 拼接后不是合法 JSON（参数丢失/截断）。
+  const blocks = new Map(); // index -> { type, jsonParts, sawDelta }
+  let contentBlockDropped = false;
+  let deltaBlockMismatch = false;
+  let toolArgsLost = false;
+
   for (const item of events) {
     const type = item.event || item.parsed?.type || "";
+    const data = item.parsed || {};
+    const index = Number.isInteger(data.index) ? data.index : null;
+
     if (type === "message_start") {
       sawMessageStart = true;
     } else if (type === "content_block_start") {
       if (!sawMessageStart) invalidOrder = true;
       sawContentStart = true;
+      if (index !== null) {
+        blocks.set(index, { type: data.content_block?.type || "", jsonParts: [], sawDelta: false });
+      }
     } else if (type === "content_block_delta") {
       if (!sawContentStart) invalidOrder = true;
       sawDelta = true;
+      const block = index !== null ? blocks.get(index) : null;
+      if (index !== null && !block) {
+        contentBlockDropped = true; // 根因1：start 丢失
+      }
+      const deltaType = data.delta?.type || "";
+      if (block) {
+        block.sawDelta = true;
+        if (deltaType === "text_delta" && block.type && block.type !== "text") {
+          deltaBlockMismatch = true; // 根因2
+        }
+        if (deltaType === "input_json_delta") {
+          if (block.type && block.type !== "tool_use") deltaBlockMismatch = true; // 根因2
+          block.jsonParts.push(String(data.delta?.partial_json ?? ""));
+        }
+      }
     } else if (type === "content_block_stop") {
       if (!sawContentStart) invalidOrder = true;
       sawContentStop = true;
@@ -312,6 +353,17 @@ function summarizeClaudeStream(events, raw) {
     }
   }
 
+  // 根因3：tool_use 参数完整性——有 input_json_delta 但拼起来非空且不可解析 → 参数丢失/截断。
+  // 空串不判（无法区分"无参工具"与"全丢"），避免误报。
+  for (const block of blocks.values()) {
+    if (block.type === "tool_use" && block.jsonParts.length > 0) {
+      const joined = block.jsonParts.join("").trim();
+      if (joined !== "" && safeJsonForProtocol(joined) === null) {
+        toolArgsLost = true;
+      }
+    }
+  }
+
   if (!events.length) issues.push("empty_stream");
   if (!sawMessageStart) issues.push("missing_message_start");
   if (!sawContentStart) issues.push("missing_content_block_start");
@@ -319,6 +371,9 @@ function summarizeClaudeStream(events, raw) {
   if (!sawContentStop) issues.push("missing_content_block_stop");
   if (!sawMessageStop) issues.push("missing_message_stop");
   if (invalidOrder) issues.push("event_order_invalid");
+  if (contentBlockDropped) issues.push("content_block_dropped");
+  if (deltaBlockMismatch) issues.push("delta_block_mismatch");
+  if (toolArgsLost) issues.push("tool_args_lost");
   if (/content block not found/i.test(String(raw || ""))) issues.push("content_block_not_found");
 
   return {
@@ -332,6 +387,10 @@ function summarizeClaudeStream(events, raw) {
       contentBlockDelta: sawDelta,
       contentBlockStop: sawContentStop,
       messageStop: sawMessageStop,
+      blockCount: blocks.size,
+      contentBlockDropped,
+      deltaBlockMismatch,
+      toolArgsLost,
     },
   };
 }
