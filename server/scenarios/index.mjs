@@ -1,4 +1,5 @@
 import { BASIC_SCENARIOS } from "./basic.mjs";
+import { CHINESE_SCENARIOS } from "./chinese.mjs";
 import { CODING_SCENARIOS } from "./coding.mjs";
 import { LONG_CONTEXT_SCENARIOS } from "./long-context.mjs";
 import { SAFETY_SCENARIOS } from "./safety.mjs";
@@ -7,6 +8,7 @@ export const ABILITY_SCENARIOS = [
   ...BASIC_SCENARIOS,
   ...CODING_SCENARIOS,
   ...LONG_CONTEXT_SCENARIOS,
+  ...CHINESE_SCENARIOS,
 ];
 
 export const TEST_SCENARIOS = [
