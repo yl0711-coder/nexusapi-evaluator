@@ -1767,3 +1767,6 @@ button.secondary:hover:not(:disabled) { border-color: var(--accent); color: var(
 .chan-pill.idle { color: var(--muted); background: var(--soft); }
 .cfg #profile-list .row-actions { display: flex; gap: 8px; }
 @media (max-width: 760px) { .cfg #profile-list .chan-row { grid-template-columns: auto 1fr; } }
+
+/* ===== 全局：内容限宽，所有页与已迁移页一致（防宽屏摊开）===== */
+.page > .section-header, .page > .panel, .page > .helper-details, .page > .technical-details, .page > details { max-width: 1180px; }
