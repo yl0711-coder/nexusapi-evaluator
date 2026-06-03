@@ -74,7 +74,7 @@ export function buildStabilitySummary({ runId, profile, records, rounds, concurr
   };
 }
 
-export function buildScenarioProfileSummary(profile, records) {
+export function buildScenarioProfileSummary(profile, records, { judgeAudit = null } = {}) {
   const successRecords = records.filter((record) => record.success);
   const failedRecords = records.filter((record) => !record.success);
   const totalTimes = successRecords.map((record) => record.totalMs).filter(isFiniteNumber);
@@ -142,6 +142,8 @@ export function buildScenarioProfileSummary(profile, records) {
     diagnostics: buildErrorDiagnostics(errorCounts),
     recommendation: buildScenarioRecommendation(successRate, avgQualityScore, percentile(totalTimes, 0.95), errorCounts),
     scenarios,
+    // LLM 裁判审计结论（审计模式，仅记录，不参与 recommendation）。null=未启用/无裁判。
+    judgeAudit,
     records,
   };
 }

@@ -5,19 +5,25 @@
 // 编排层（judge-orchestration / rut-orchestration）对采样全用依赖注入：
 //   - 裁判：callJudge(judgeModel, prompt) => Promise<文本>
 //   - RUT：sampleTarget(prompt) / sampleBaseline(prompt) => Promise<record>
-// 这里提供把这些注入点接到真实请求机（executeTestRequest）的适配器。
+// 这里提供把这些注入点接到真实请求机的适配器（runRequest 由上层注入）。
 //
 // **安全设计**：
-//   1. runRequest 仍是依赖注入参数（默认 executeTestRequest），测试可注入 mock，
+//   1. runRequest 一律依赖注入（真实跑传 executeTestRequest，测试传 mock），
 //      本模块自身不强制发任何真实请求 —— 单测零额度消耗。
 //   2. 真实跑由上层显式构造适配器并提供「裁判/基线 profile + 额度上限」才会发生；
 //      默认 env 开关关闭（见 isLiveJudgeEnabled / isLiveRutEnabled）。
 //   3. 上线顺序遵循：纯透传 → 审计(只记录) → shadow → 小流量 → 阻断。
 //      首次真实跑应停在「审计」：跑并记录裁判/RUT 结论，但不据此改变任何对外结论。
 
-import { executeTestRequest } from "./test-runner.mjs";
 import { assessJudgePanel } from "./judge-orchestration.mjs";
 import { selectEligibleJudges } from "./llm-judge.mjs";
+
+// runRequest 一律依赖注入：真实跑由 test-runner 传 executeTestRequest，测试传 mock。
+// 不在此 import executeTestRequest —— 避免与 test-runner 形成循环依赖，也确保本模块
+// 自身永远不会"默认"发真实请求。
+function defaultRunRequest() {
+  throw new Error("live-adapters 需要注入 runRequest（真实跑传 executeTestRequest，测试传 mock）");
+}
 
 // env 闸门：默认关闭。真实激活需显式置 1，且仍受额度守卫约束。
 export function isLiveJudgeEnabled() {
@@ -29,8 +35,8 @@ export function isLiveRutEnabled() {
 
 // 裁判调用器：judges 传裁判 profile 列表；callJudge 收到的是“裁判模型名”
 // （编排层用模型名做同家族规避），按模型名映射回 profile 再发请求。
-// runRequest 默认 executeTestRequest，可注入 mock 测试。
-export function createJudgeCaller(judgeProfiles = [], { runRequest = executeTestRequest, runId = "llm-judge", abortSignal = null } = {}) {
+// runRequest 由上层注入（真实跑传 executeTestRequest，测试传 mock）。
+export function createJudgeCaller(judgeProfiles = [], { runRequest = defaultRunRequest, runId = "llm-judge", abortSignal = null } = {}) {
   const byModel = new Map();
   for (const profile of judgeProfiles) {
     if (profile?.defaultModel && !byModel.has(profile.defaultModel)) {
@@ -57,7 +63,7 @@ export function judgeModelsFromProfiles(judgeProfiles = []) {
 
 // RUT 采样器：给定 profile，返回 sample(prompt) => Promise<record>。
 // scoreResponse 默认读 record.responseText（textLengthScore 兼容）。
-export function createProfileSampler(profile, { runRequest = executeTestRequest, runId = "rut", caseId = "rut", abortSignal = null } = {}) {
+export function createProfileSampler(profile, { runRequest = defaultRunRequest, runId = "rut", caseId = "rut", abortSignal = null } = {}) {
   if (!profile) throw new Error("createProfileSampler 需要一个 profile");
   return async function sample(prompt) {
     return runRequest(profile, prompt, { runId, caseId, writeLog: true, abortSignal });
@@ -80,7 +86,7 @@ export function judgeBudgetPlan(itemCount, judgeCount, maxCalls) {
 
 // LLM 裁判「审计模式」真实跑：只产出并记录裁判结论，绝不据此改变任何对外评测结论
 // （上线顺序第二步：审计）。受 maxCalls 硬上限约束，超额截断题目并显式声明丢弃。
-// runRequest 默认 executeTestRequest，可注入 mock 测试。真实跑由上层在
+// runRequest 由上层注入（真实跑传 executeTestRequest，测试传 mock）。真实跑由上层在
 // isLiveJudgeEnabled() 为真且提供裁判 profile 后触发。
 export async function runLiveJudgeAudit({
   targetModel = "",
@@ -88,7 +94,7 @@ export async function runLiveJudgeAudit({
   judgeProfiles = [],
   scale = 100,
   maxCalls = 50,
-  runRequest = executeTestRequest,
+  runRequest = defaultRunRequest,
   runId = "llm-judge-audit",
   abortSignal = null,
 } = {}) {

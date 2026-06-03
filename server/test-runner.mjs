@@ -41,6 +41,7 @@ import {
 } from "./reporting.mjs";
 import { buildScenarioProfileSummary, buildScenarioSummary, buildStabilitySummary } from "./summaries.mjs";
 import { recordRequest, recordTestRun } from "./db.mjs";
+import { isLiveJudgeEnabled, runLiveJudgeAudit } from "./live-adapters.mjs";
 import { assertTaskNotCancelled, updateTaskProgress } from "./task-manager.mjs";
 import {
   appendJsonLine,
@@ -937,6 +938,9 @@ export function normalizeScenarioIds(value) {
 
 async function runScenarioProfile({ runId, profile, scenarios, repeats, requestConcurrency, taskContext }) {
   const records = [];
+  // LLM 裁判审计（内联）：仅在开关开启时收集 (问题, 回答) 对，回答剥离前抓取。
+  const collectForJudge = isLiveJudgeEnabled();
+  const judgeItems = [];
   const jobs = [];
   for (const scenario of scenarios) {
     for (let repeat = 1; repeat <= repeats; repeat += 1) {
@@ -956,6 +960,9 @@ async function runScenarioProfile({ runId, profile, scenarios, repeats, requestC
           abortSignal: taskContext?.task?.abortController?.signal,
         });
         const quality = evaluateScenarioOutput(scenario, record);
+        if (collectForJudge && record.success && record.responseText) {
+          judgeItems.push({ question: scenario.prompt, answer: record.responseText, rubric: scenario.judgeRubric || "" });
+        }
         delete record.responseText;
         return {
           ...record,
@@ -977,7 +984,37 @@ async function runScenarioProfile({ runId, profile, scenarios, repeats, requestC
     );
   }
 
-  return buildScenarioProfileSummary(profile, records);
+  const judgeAudit = collectForJudge
+    ? await maybeRunInlineJudgeAudit({ profile, items: judgeItems, runId, taskContext })
+    : null;
+  return buildScenarioProfileSummary(profile, records, { judgeAudit });
+}
+
+// 内联裁判审计：审计模式（只记录，不改结论）。开关关 / 无裁判渠道 / 无回答 → 跳过。
+// 裁判 = 配置里 role==="judge" 的渠道；额度上限默认 50（可 env 调），传 executeTestRequest 真实跑。
+const JUDGE_AUDIT_MAX_CALLS = Number(process.env.NEXUSAPI_JUDGE_AUDIT_MAX_CALLS || 50);
+async function maybeRunInlineJudgeAudit({ profile, items, runId, taskContext }) {
+  if (!isLiveJudgeEnabled() || !items || items.length === 0) return null;
+  const profiles = await loadProfiles();
+  const judgeProfiles = profiles.filter((p) => p.role === "judge");
+  if (judgeProfiles.length === 0) {
+    return {
+      mode: "audit",
+      ok: false,
+      reason: "no_judge_channel",
+      callsUsed: 0,
+      note: "已开启裁判审计，但未配置「裁判 / 主 API」角色渠道，已跳过（不影响评测结论）。",
+    };
+  }
+  return runLiveJudgeAudit({
+    targetModel: profile.defaultModel,
+    items,
+    judgeProfiles,
+    maxCalls: JUDGE_AUDIT_MAX_CALLS,
+    runRequest: executeTestRequest,
+    runId: `${runId}-judge`,
+    abortSignal: taskContext?.task?.abortController?.signal,
+  });
 }
 
 // 把外部取消信号（任务级 AbortController）接到单请求的 controller：取消时立即
