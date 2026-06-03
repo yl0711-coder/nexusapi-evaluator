@@ -30,6 +30,8 @@ export function createTaskManager({
       totalUnits: estimateTaskUnits(type, payload, { normalizeProfileIds, normalizeScenarioIds }),
       message: "任务已开始。",
       cancelRequested: false,
+      // 取消时 abort 在飞的 fetch，请求层据此立即停止，不必等当前请求超时/自然结束。
+      abortController: new AbortController(),
       result: null,
       error: null,
       errorId: "",
@@ -107,7 +109,12 @@ export function createTaskManager({
 
   async function cancelTask(task) {
     task.cancelRequested = true;
-    task.message = "已请求取消，当前请求结束后会停止。";
+    task.message = "已请求取消，正在停止当前请求。";
+    try {
+      task.abortController?.abort();
+    } catch {
+      // best-effort：abort 失败不影响取消标志，下个批次边界仍会停。
+    }
     await appendTaskEvent(taskEventsFile, task, "cancel_requested");
   }
 

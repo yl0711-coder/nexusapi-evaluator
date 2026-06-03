@@ -88,7 +88,7 @@ export async function runQuickTest(profileId, prompt) {
   });
 }
 
-export async function runAdmissionTest(body) {
+export async function runAdmissionTest(body, taskContext = {}) {
   const profiles = await loadProfiles();
   const profile = profiles.find((item) => item.id === body.profileId);
   if (!profile) {
@@ -104,7 +104,7 @@ export async function runAdmissionTest(body) {
   const records = [];
 
   for (const testCase of cases) {
-    const record = await executeAdmissionTestCase(profile, testCase, runId);
+    const record = await executeAdmissionTestCase(profile, testCase, runId, taskContext);
     const admission = evaluateAdmissionCase(testCase, record);
     delete record.responseText;
     records.push({
@@ -174,11 +174,14 @@ export async function runBatchAdmissionTest(body, taskContext = {}) {
     const batch = validProfileIds.slice(index, index + maxParallelProfiles);
     const settled = await Promise.allSettled(
       batch.map((profileId) =>
-        runAdmissionTest({
-          ...body,
-          profileId,
-          packageLevel,
-        }),
+        runAdmissionTest(
+          {
+            ...body,
+            profileId,
+            packageLevel,
+          },
+          taskContext,
+        ),
       ),
     );
     for (const result of settled) {
@@ -331,12 +334,13 @@ function buildAdmissionCases(packageLevel, modelName = "") {
   return cases;
 }
 
-async function executeAdmissionTestCase(profile, testCase, runId) {
+async function executeAdmissionTestCase(profile, testCase, runId, taskContext = {}) {
   const baseOptions = {
     runId,
     caseId: testCase.id,
     caseName: testCase.name,
     writeLog: true,
+    abortSignal: taskContext?.task?.abortController?.signal,
   };
 
   if (testCase.kind === "tool") {
@@ -673,6 +677,7 @@ async function runStabilityForProfile({ profile, body, taskContext = {}, onProgr
         runId,
         caseId: `round-${round}`,
         writeLog: true,
+        abortSignal: taskContext?.task?.abortController?.signal,
       });
     });
     records.push(...(await Promise.all(batch)));
@@ -948,6 +953,7 @@ async function runScenarioProfile({ runId, profile, scenarios, repeats, requestC
           runId,
           caseId: scenario.id,
           writeLog: true,
+          abortSignal: taskContext?.task?.abortController?.signal,
         });
         const quality = evaluateScenarioOutput(scenario, record);
         delete record.responseText;
@@ -974,12 +980,26 @@ async function runScenarioProfile({ runId, profile, scenarios, repeats, requestC
   return buildScenarioProfileSummary(profile, records);
 }
 
-async function executeTestRequest(profile, prompt, options = {}) {
+// 把外部取消信号（任务级 AbortController）接到单请求的 controller：取消时立即
+// abort 在飞的 fetch，不必等当前请求超时/自然结束。返回解绑函数，在 finally 调用。
+export function linkExternalAbort(controller, signal) {
+  if (!signal) return () => {};
+  if (signal.aborted) {
+    controller.abort();
+    return () => {};
+  }
+  const onAbort = () => controller.abort();
+  signal.addEventListener("abort", onAbort, { once: true });
+  return () => signal.removeEventListener("abort", onAbort);
+}
+
+export async function executeTestRequest(profile, prompt, options = {}) {
   const requestId = crypto.randomUUID();
   const startedAt = new Date();
   const timeoutMs = Number(profile.timeoutMs || 60000);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const unlinkAbort = linkExternalAbort(controller, options.abortSignal);
   let firstByteMs = null;
   let totalMs = null;
   let statusCode = null;
@@ -1059,6 +1079,7 @@ async function executeTestRequest(profile, prompt, options = {}) {
     normalizedError = /abort|timeout|timed out/i.test(rawError) ? "timeout" : "network_error";
   } finally {
     clearTimeout(timer);
+    unlinkAbort();
   }
 
   return finalizeTestRecord({
@@ -1082,6 +1103,7 @@ async function executeToolCallTestRequest(profile, options = {}) {
   const timeoutMs = Number(profile.timeoutMs || 60000);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const unlinkAbort = linkExternalAbort(controller, options.abortSignal);
   let firstByteMs = null;
   let totalMs = null;
   let statusCode = null;
@@ -1166,6 +1188,7 @@ async function executeToolCallTestRequest(profile, options = {}) {
     normalizedError = /abort|timeout|timed out/i.test(rawError) ? "timeout" : "network_error";
   } finally {
     clearTimeout(timer);
+    unlinkAbort();
   }
 
   return finalizeTestRecord({
@@ -1191,6 +1214,8 @@ async function executeStreamStructureTestRequest(profile, prompt, options = {}) 
   const timeoutMs = Number(profile.timeoutMs || 60000);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const unlinkAbort = linkExternalAbort(controller, options.abortSignal);
+  let firstTokenMs = null;
   let firstByteMs = null;
   let totalMs = null;
   let statusCode = null;
@@ -1235,6 +1260,11 @@ async function executeStreamStructureTestRequest(profile, prompt, options = {}) 
     statusCode = response.status;
     const rawResult = await readBoundedResponseText(response, MAX_UPSTREAM_RESPONSE_BYTES, controller);
     totalMs = Math.round(performance.now() - started);
+    // 真 TTFT：首个流式分片到达的时刻（≈首 token 开始），而非响应头到达(firstByte)。
+    // 仅流式可测；非流式 JSON 整体返回，无 token 级时序，故保持 null。
+    if (rawResult.firstChunkAt != null) {
+      firstTokenMs = Math.max(0, Math.round(rawResult.firstChunkAt - started));
+    }
     if (rawResult.truncated) {
       rawError = `上游响应超过 ${MAX_UPSTREAM_RESPONSE_BYTES} bytes，已停止读取。`;
       normalizedError = "response_too_large";
@@ -1244,6 +1274,7 @@ async function executeStreamStructureTestRequest(profile, prompt, options = {}) 
         requestId,
         startedAt,
         firstByteMs,
+        firstTokenMs,
         totalMs,
         statusCode,
         responseText,
@@ -1275,6 +1306,7 @@ async function executeStreamStructureTestRequest(profile, prompt, options = {}) 
     normalizedError = /abort|timeout|timed out/i.test(rawError) ? "timeout" : "network_error";
   } finally {
     clearTimeout(timer);
+    unlinkAbort();
   }
 
   return finalizeTestRecord({
@@ -1283,6 +1315,7 @@ async function executeStreamStructureTestRequest(profile, prompt, options = {}) 
     requestId,
     startedAt,
     firstByteMs,
+    firstTokenMs,
     totalMs,
     statusCode,
     responseText,
@@ -1298,22 +1331,23 @@ export async function readBoundedResponseText(response, maxBytes, controller) {
   const contentLength = Number(response.headers.get("content-length") || 0);
   if (Number.isFinite(contentLength) && contentLength > maxBytes) {
     controller.abort();
-    return { text: "", truncated: true };
+    return { text: "", truncated: true, firstChunkAt: null };
   }
 
   if (!response.body?.getReader) {
     if (!contentLength) {
       controller.abort();
-      return { text: "", truncated: true };
+      return { text: "", truncated: true, firstChunkAt: null };
     }
     const text = await response.text();
-    return { text: text.slice(0, maxBytes), truncated: Buffer.byteLength(text, "utf8") > maxBytes };
+    return { text: text.slice(0, maxBytes), truncated: Buffer.byteLength(text, "utf8") > maxBytes, firstChunkAt: null };
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   const chunks = [];
   let totalBytes = 0;
+  let firstChunkAt = null; // 首个分片到达时刻（performance.now()），供流式 TTFT 计算
 
   try {
     while (true) {
@@ -1321,16 +1355,17 @@ export async function readBoundedResponseText(response, maxBytes, controller) {
       if (done) {
         break;
       }
+      if (firstChunkAt === null) firstChunkAt = performance.now();
       totalBytes += value.byteLength;
       if (totalBytes > maxBytes) {
         await reader.cancel();
         controller.abort();
-        return { text: chunks.join(""), truncated: true };
+        return { text: chunks.join(""), truncated: true, firstChunkAt };
       }
       chunks.push(decoder.decode(value, { stream: true }));
     }
     chunks.push(decoder.decode());
-    return { text: chunks.join(""), truncated: false };
+    return { text: chunks.join(""), truncated: false, firstChunkAt };
   } finally {
     reader.releaseLock?.();
   }
@@ -1359,6 +1394,7 @@ async function finalizeTestRecord({
   requestId,
   startedAt,
   firstByteMs,
+  firstTokenMs = null,
   totalMs,
   statusCode,
   responseText,
@@ -1381,7 +1417,7 @@ async function finalizeTestRecord({
     protocol: profile.protocol,
     startedAt: startedAt.toISOString(),
     firstByteMs,
-    firstTokenMs: firstByteMs,
+    firstTokenMs,
     totalMs,
     statusCode,
     success: successOverride ?? Boolean(statusCode && statusCode >= 200 && statusCode < 300 && responseText),
@@ -1459,6 +1495,7 @@ async function maybeBuildAiAnalysis({ enabled, reportType, profile, summary, run
       runId,
       caseId: "ai-report-analysis",
       writeLog: true,
+      abortSignal: taskContext?.task?.abortController?.signal,
     },
   );
   return buildAiAnalysisResult(record);
