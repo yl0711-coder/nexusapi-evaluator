@@ -1770,3 +1770,15 @@ button.secondary:hover:not(:disabled) { border-color: var(--accent); color: var(
 
 /* ===== 全局：内容限宽，所有页与已迁移页一致（防宽屏摊开）===== */
 .page > .section-header, .page > .panel, .page > .helper-details, .page > .technical-details, .page > details { max-width: 1180px; }
+
+/* ===== 按钮分级精修：只主操作醒目，工具/行内操作更小更轻（去"傻大"）===== */
+/* 基础：减重 700→600、收 padding */
+button.primary, button.secondary { font-weight: 600; padding: 10px 16px; font-size: 13.5px; }
+/* 工具栏/页头次按钮（导入/导出/刷新、"这个页面怎么用"等）→ 小而轻 */
+.action-row > button, .help-toggle, .section-header .action-row > button { padding: 7px 13px; font-size: 12.5px; font-weight: 500; border-radius: 9px; }
+/* 行内/列表操作（更新Key/删除）→ 最小，仍保证可点 */
+.row-actions button, .chan-row .row-actions button { padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 8px; }
+/* 演示横幅退出按钮 → 小 */
+.demo-banner button { padding: 7px 13px; font-size: 12.5px; font-weight: 500; }
+/* compact 区块头里的次按钮 → 小 */
+.section-header.compact > button, .section-header.compact .action-row > button { padding: 7px 13px; font-size: 12.5px; font-weight: 500; }
