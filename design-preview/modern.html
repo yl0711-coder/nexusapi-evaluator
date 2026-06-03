@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NexusAPI 评测 · 现代风格原型 (Aurora Console)</title>
+<style>
+  :root {
+    --ink: #0a0e17;
+    --ink-2: #0e1320;
+    --surface: #131a2b;
+    --surface-2: #18213500;
+    --card: #141c2e;
+    --line: #232c42;
+    --line-soft: #1b2336;
+    --text: #eef2fb;
+    --text-2: #aab4c9;
+    --muted: #6b7791;
+    --amber: #f6b56b;
+    --coral: #ff7a8a;
+    --mint: #5fe3b0;
+    --sky: #6db4ff;
+    --violet: #a78bfa;
+    --brand: linear-gradient(120deg, #f6b56b 0%, #ff7a8a 100%);
+    --brand-soft: linear-gradient(120deg, rgba(246,181,107,.16), rgba(255,122,138,.16));
+    --r: 20px; --r-sm: 13px;
+    --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    --mono: "SF Mono", ui-monospace, "JetBrains Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased;
+    background:
+      radial-gradient(900px 520px at 88% -6%, rgba(255,122,138,.10), transparent 60%),
+      radial-gradient(820px 480px at 4% 8%, rgba(246,181,107,.09), transparent 55%),
+      radial-gradient(700px 600px at 60% 108%, rgba(109,180,255,.07), transparent 60%),
+      var(--ink);
+  }
+  .shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  .side { padding: 24px 16px; border-right: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 28px; position: sticky; top: 0; height: 100vh; }
+  .brand { display: flex; align-items: center; gap: 12px; padding: 0 6px; }
+  .brand .mk { width: 38px; height: 38px; border-radius: 12px; background: var(--brand); display: grid; place-items: center; font-weight: 800; color: #1a0f08; font-size: 18px; box-shadow: 0 8px 22px rgba(255,122,138,.32); }
+  .brand .nm { font-size: 15px; font-weight: 700; letter-spacing: .2px; }
+  .brand .nm small { display: block; font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 2px; }
+  .navg { display: flex; flex-direction: column; gap: 4px; }
+  .navg .lbl { font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); padding: 0 12px 6px; }
+  .nav { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 12px; color: var(--text-2); font-size: 13.5px; cursor: pointer; border: 1px solid transparent; transition: .16s; position: relative; }
+  .nav:hover { background: rgba(255,255,255,.04); color: var(--text); }
+  .nav.on { background: var(--brand-soft); color: var(--text); border-color: rgba(246,181,107,.26); }
+  .nav .ic { width: 18px; text-align: center; opacity: .9; }
+  .nav.on::before { content:""; position:absolute; left:-16px; top:50%; transform:translateY(-50%); width:3px; height:18px; border-radius:0 3px 3px 0; background: var(--brand); }
+  .side .spacer { margin-top: auto; }
+
+  /* Main */
+  .main { padding: 36px 44px 64px; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  .view.hidden { display: none; }
+  .head { margin-bottom: 28px; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .eyebrow { font-size: 15.5px; letter-spacing: .02em; font-weight: 700; background: var(--brand); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
+  .head h1 { font-size: 26px; font-weight: 720; letter-spacing: -.4px; line-height: 1.12; }
+  .head h1 .step { background: var(--brand); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-right: 16px; }
+  .head .sub { color: var(--text-2); font-size: 13.5px; margin-top: 9px; max-width: 640px; line-height: 1.6; }
+  .toolbtns { display: flex; gap: 9px; }
+
+  .btn { font-family: var(--sans); font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 11px; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--text); padding: 9px 15px; transition: .14s; }
+  .btn:hover { border-color: var(--text-2); }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; font-weight: 500; color: var(--text-2); }
+  .btn.primary { border: 0; color: #1a0f08; background: var(--brand); font-weight: 700; padding: 12px 22px; box-shadow: 0 10px 26px rgba(255,122,138,.28); }
+  .btn.primary:hover { transform: translateY(-1px); box-shadow: 0 16px 34px rgba(255,122,138,.4); }
+  .btn.ghost { background: transparent; }
+
+  .card { background: linear-gradient(180deg, rgba(255,255,255,.025), transparent), var(--card); border: 1px solid var(--line); border-radius: var(--r); }
+
+  /* ===== Dashboard bento ===== */
+  .bento { display: grid; grid-template-columns: 1.5fr 1fr 1fr; grid-auto-rows: minmax(0,auto); gap: 18px; }
+  .hero { grid-column: 1 / 3; padding: 28px 30px; position: relative; overflow: hidden; border: 1px solid rgba(246,181,107,.22); }
+  .hero::after { content:""; position:absolute; inset:0; background: radial-gradient(420px 220px at 90% 0%, rgba(255,122,138,.16), transparent 70%); pointer-events:none; }
+  .hero .ey { font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); margin-bottom: 16px; }
+  .track { display: flex; align-items: center; margin-bottom: 24px; }
+  .stp { display: flex; align-items: center; gap: 9px; }
+  .stp .d { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); color: var(--muted); background: var(--ink-2); }
+  .stp .t { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+  .stp.done .d { border-color: rgba(95,227,176,.5); color: var(--mint); background: rgba(95,227,176,.08); } .stp.done .t { color: var(--text-2); }
+  .stp.now .d { border: 0; color: #1a0f08; background: var(--brand); font-weight: 800; box-shadow: 0 0 0 4px rgba(246,181,107,.16); } .stp.now .t { color: var(--text); font-weight: 600; }
+  .cn { flex: 1; height: 2px; background: var(--line); margin: 0 10px; } .cn.done { background: linear-gradient(90deg, var(--mint), var(--line)); }
+  .hero h2 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; margin-bottom: 6px; }
+  .hero p { color: var(--text-2); font-size: 13px; margin-bottom: 20px; }
+  .hero .acts { display: flex; gap: 12px; }
+
+  .tile { padding: 22px 22px; display: flex; flex-direction: column; gap: 14px; }
+  .tile.health { grid-column: 3 / 4; grid-row: 1 / 2; }
+  .tile .th { display: flex; align-items: center; justify-content: space-between; }
+  .tile .th span { color: var(--text-2); font-size: 12.5px; }
+  .tile .th .ic { width: 30px; height: 30px; border-radius: 9px; background: rgba(255,255,255,.05); display: grid; place-items: center; font-size: 14px; }
+  .tile .num { font-family: var(--mono); font-size: 40px; font-weight: 600; line-height: .95; letter-spacing: -1.5px; }
+  .tile .num em { font-style: normal; font-size: 14px; color: var(--muted); margin-left: 7px; letter-spacing: 0; }
+  .bars { display: flex; gap: 5px; height: 6px; border-radius: 4px; overflow: hidden; }
+  .bars i { display: block; height: 100%; border-radius: 4px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; }
+  .legend span { font-size: 12px; color: var(--text-2); font-family: var(--mono); display: inline-flex; align-items: center; gap: 6px; }
+  .legend span b { width: 7px; height: 7px; border-radius: 50%; }
+  .dot-good { background: var(--mint); } .dot-warn { background: var(--amber); } .dot-bad { background: var(--coral); } .dot-idle { background: var(--muted); } .dot-sky { background: var(--sky); }
+
+  .recent { grid-column: 1 / 4; padding: 8px 12px 14px; }
+  .rh { display: flex; align-items: center; justify-content: space-between; padding: 14px 12px 12px; }
+  .rh h3 { font-size: 14px; font-weight: 650; } .rh a { color: var(--text-2); font-size: 12.5px; cursor: pointer; } .rh a:hover { color: var(--amber); }
+  .rrow { display: grid; grid-template-columns: 1.7fr .9fr auto 1fr auto; align-items: center; gap: 14px; padding: 13px 12px; border-radius: 12px; cursor: pointer; transition: .14s; }
+  .rrow:hover { background: rgba(255,255,255,.035); }
+  .rrow .w b { font-size: 13.5px; font-weight: 600; } .rrow .w small { display: block; color: var(--muted); font-size: 11.5px; font-family: var(--mono); margin-top: 2px; }
+  .rrow .k { color: var(--text-2); font-size: 12.5px; }
+  .rrow .when { color: var(--muted); font-size: 12px; font-family: var(--mono); text-align: right; }
+  .rrow .go { color: var(--muted); } .rrow:hover .go { color: var(--amber); }
+  .vp { font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 999px; white-space: nowrap; }
+  .vp.good { color: var(--mint); background: rgba(95,227,176,.12); } .vp.warn { color: var(--amber); background: rgba(246,181,107,.12); } .vp.bad { color: var(--coral); background: rgba(255,122,138,.12); } .vp.idle { color: var(--muted); background: rgba(255,255,255,.05); }
+
+  /* ===== forms ===== */
+  .grid2 { display: grid; grid-template-columns: 1fr 360px; gap: 18px; align-items: start; }
+  .formcard { padding: 26px 28px; }
+  .formcard .ct { font-size: 15px; font-weight: 650; margin-bottom: 4px; }
+  .formcard .cd { color: var(--text-2); font-size: 12.5px; margin-bottom: 22px; }
+  .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+  .field label { font-size: 13px; font-weight: 500; color: var(--text); }
+  .field label .req { color: var(--coral); margin-left: 4px; }
+  .field input, .field select, .field textarea { font-family: var(--sans); font-size: 14px; color: var(--text); background: var(--ink-2); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; outline: none; transition: .15s; }
+  .field input::placeholder { color: #56617a; }
+  .field input:focus, .field select:focus { border-color: var(--amber); box-shadow: 0 0 0 4px rgba(246,181,107,.13); }
+  .field .hint { font-size: 11.5px; color: var(--muted); line-height: 1.6; }
+  .field .hint code { font-family: var(--mono); font-size: 11px; background: rgba(255,255,255,.05); padding: 1px 6px; border-radius: 5px; }
+  details.adv { border: 1px solid var(--line); border-radius: 13px; background: var(--ink-2); margin-bottom: 18px; }
+  details.adv summary { list-style: none; cursor: pointer; padding: 14px 16px; font-size: 13px; color: var(--text-2); display: flex; gap: 8px; align-items: center; }
+  details.adv summary::-webkit-details-marker { display: none; }
+  details.adv summary::before { content: "›"; color: var(--amber); font-size: 16px; transition: .15s; }
+  details.adv[open] summary::before { transform: rotate(90deg); }
+  .formacts { display: flex; gap: 12px; align-items: center; }
+
+  .tips { padding: 24px; display: flex; flex-direction: column; gap: 18px; height: fit-content; }
+  .tips h4 { font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--amber); }
+  .tip b { font-size: 13px; } .tip span { display: block; color: var(--text-2); font-size: 12px; line-height: 1.6; margin-top: 4px; }
+  .tip code { font-family: var(--mono); font-size: 11px; background: rgba(255,255,255,.05); padding: 1px 6px; border-radius: 5px; }
+
+  /* channel list */
+  .chlist { padding: 8px 10px 12px; margin-top: 18px; }
+  .chrow { display: grid; grid-template-columns: auto 1.7fr 1.1fr auto auto; align-items: center; gap: 14px; padding: 14px; border-radius: 13px; transition: .14s; }
+  .chrow:hover { background: rgba(255,255,255,.035); }
+  .hl { width: 9px; height: 9px; border-radius: 50%; }
+  .hl.good { background: var(--mint); box-shadow: 0 0 9px var(--mint); } .hl.warn { background: var(--amber); box-shadow: 0 0 9px var(--amber); } .hl.bad { background: var(--coral); box-shadow: 0 0 9px var(--coral); } .hl.idle { background: var(--muted); opacity: .5; }
+  .chw b { font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; } .chw small { display: block; color: var(--muted); font-size: 11.5px; font-family: var(--mono); margin-top: 3px; }
+  .rb { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 7px; }
+  .rb.target { color: var(--sky); background: rgba(109,180,255,.13); } .rb.baseline { color: var(--mint); background: rgba(95,227,176,.13); }
+  .chm { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  .iconb { width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--line); background: var(--ink-2); color: var(--muted); cursor: pointer; }
+  .iconb:hover { border-color: var(--amber); color: var(--amber); }
+
+  /* eval / result */
+  .runcard { padding: 26px 28px; }
+  .pick { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; }
+  .pick select { font-family: var(--sans); font-size: 14px; color: var(--text); background: var(--ink-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 15px; min-width: 280px; }
+  .scope { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+  .scope .s { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; }
+  .scope .s .t { color: var(--mint); }
+  .rmeta { color: var(--text-2); font-size: 12.5px; margin-bottom: 18px; } .rmeta b { color: var(--text); font-family: var(--mono); }
+  .result { overflow: hidden; margin-top: 18px; }
+  .verdict { display: flex; align-items: center; gap: 18px; padding: 24px 28px; border-bottom: 1px solid var(--line); }
+  .bigpill { font-size: 15px; font-weight: 750; padding: 10px 20px; border-radius: 999px; color: var(--mint); background: rgba(95,227,176,.13); border: 1px solid rgba(95,227,176,.34); }
+  .verdict .vt b { font-size: 17px; } .verdict .vt small { display: block; color: var(--text-2); font-size: 12.5px; margin-top: 4px; }
+  .mtiles { display: grid; grid-template-columns: repeat(5,1fr); gap: 1px; background: var(--line); }
+  .mt { background: var(--card); padding: 20px 18px; display: flex; flex-direction: column; gap: 7px; }
+  .mt span { color: var(--muted); font-size: 11.5px; } .mt b { font-family: var(--mono); font-size: 23px; font-weight: 600; letter-spacing: -.5px; } .mt b.good { color: var(--mint); } .mt small { color: var(--muted); font-size: 11px; font-family: var(--mono); }
+  .racts { padding: 20px 28px; display: flex; gap: 12px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 11px; overflow: hidden; }
+  .seg button { font-family: var(--sans); font-size: 12.5px; color: var(--muted); background: var(--ink-2); border: 0; border-right: 1px solid var(--line); padding: 11px 15px; cursor: pointer; } .seg button:last-child { border: 0; } .seg button.on { background: var(--brand-soft); color: var(--amber); }
+
+  /* reports */
+  .filt { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
+  .chips { display: inline-flex; gap: 8px; }
+  .chips button { font-family: var(--sans); font-size: 12.5px; color: var(--text-2); background: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 8px 15px; cursor: pointer; }
+  .chips button.on { background: var(--brand-soft); color: var(--amber); border-color: rgba(246,181,107,.3); }
+  .lbrow { display: grid; grid-template-columns: 30px 1.5fr repeat(3,.8fr); align-items: center; gap: 12px; padding: 13px 14px; border-radius: 11px; font-size: 13px; }
+  .lbrow.h { color: var(--muted); font-size: 11.5px; }
+  .lbrow:not(.h):hover { background: rgba(255,255,255,.035); }
+  .lbrow .rk { font-family: var(--mono); color: var(--muted); } .lbrow .rk.top { color: var(--amber); font-weight: 800; }
+  .lbrow .v { font-family: var(--mono); } .lbrow .v.good { color: var(--mint); }
+
+  .note { max-width: 1120px; margin: 26px auto 0; color: var(--muted); font-size: 11.5px; line-height: 1.7; border-top: 1px dashed var(--line); padding-top: 14px; }
+  /* gate (准入/快速) */
+  .gate { display:flex; flex-direction:column; }
+  .gitem { display:grid; grid-template-columns:26px 1.4fr 1fr; align-items:center; gap:14px; padding:15px 18px; border-bottom:1px solid var(--line); }
+  .gitem:last-child{ border-bottom:0; }
+  .gico { width:24px; height:24px; border-radius:8px; display:grid; place-items:center; font-size:13px; }
+  .gico.pass{ color:var(--mint); background:rgba(95,227,176,.13); } .gico.warn{ color:var(--amber); background:rgba(246,181,107,.13); } .gico.fail{ color:var(--coral); background:rgba(255,122,138,.13); }
+  .gn b{ font-size:13.5px; } .gn small{ display:block; color:var(--muted); font-size:11.5px; margin-top:2px; }
+  .gr{ font-size:12.5px; font-family:var(--mono); color:var(--muted); text-align:right; } .gr.pass{ color:var(--mint); } .gr.warn{ color:var(--amber); }
+  /* 交付模板 */
+  .tmpl{ font-family:var(--mono); font-size:12.5px; line-height:1.75; color:var(--text); background:var(--ink); border:1px solid var(--line); border-radius:13px; padding:20px; white-space:pre-wrap; }
+  .tmpl .h{ color:var(--amber); } .tmpl .g{ color:var(--mint); } .tmpl .m{ color:var(--muted); }
+  .checklist{ display:grid; gap:11px; } .checklist label{ display:flex; gap:11px; align-items:center; font-size:13px; color:var(--text-2); }
+  /* 场景分项 / 报告详情 P 项 */
+  .pit{ display:grid; grid-template-columns:24px 1.3fr 1fr auto; align-items:center; gap:12px; padding:13px 16px; border-bottom:1px solid var(--line); font-size:13px; } .pit:last-child{ border-bottom:0; }
+  .pit .pi{ font-size:14px; } .pi.ok{ color:var(--mint); } .pi.part{ color:var(--amber); }
+  .pit .pn b{ font-weight:600; } .pit .pd{ color:var(--muted); font-size:12px; }
+  .rdtier{ color:var(--muted); font-size:11px; letter-spacing:.14em; text-transform:uppercase; margin:26px 4px 12px; } .rdtier:first-of-type{ margin-top:0; }
+  .metastrip{ display:flex; flex-wrap:wrap; gap:18px; padding:16px 18px; font-size:11.5px; color:var(--muted); font-family:var(--mono); } .metastrip b{ color:var(--text-2); font-weight:500; }
+  .discl{ color:var(--muted); font-size:11.5px; line-height:1.7; padding:14px 18px; }
+  .back{ color:var(--muted); font-size:13px; cursor:pointer; margin-bottom:16px; display:inline-block; } .back:hover{ color:var(--amber); }
+  /* 使用手册（文档阅读）*/
+  .docgrid{ display:grid; grid-template-columns:1fr 220px; gap:28px; align-items:start; }
+  .toc{ position:sticky; top:24px; padding:20px; font-size:13px; }
+  .toc .tt{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+  .toc a{ display:block; color:var(--text-2); padding:8px 11px; border-radius:9px; text-decoration:none; cursor:pointer; }
+  .toc a:hover, .toc a.on{ background:var(--brand-soft); color:var(--text); }
+  .doc{ padding:30px 34px; }
+  .doc h2{ font-size:18px; font-weight:700; margin:28px 0 12px; letter-spacing:-.2px; } .doc h2:first-of-type{ margin-top:6px; }
+  .doc p{ color:var(--text-2); line-height:1.85; font-size:14px; margin-bottom:12px; }
+  .doc ul{ margin:0 0 14px; padding-left:20px; color:var(--text-2); line-height:1.9; font-size:14px; } .doc ul li{ margin-bottom:5px; } .doc ul b{ color:var(--text); }
+  .doc code{ font-family:var(--mono); font-size:12.5px; background:rgba(255,255,255,.05); padding:2px 6px; border-radius:6px; color:var(--amber); }
+  .callout{ display:flex; gap:14px; padding:16px 18px; border-radius:13px; background:var(--brand-soft); border:1px solid rgba(246,181,107,.22); margin:0 0 22px; }
+  .callout .ci{ font-size:18px; } .callout b{ font-size:13.5px; } .callout p{ margin:6px 0 0; font-size:13px; color:var(--text-2); line-height:1.65; }
+  @keyframes rise { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform:none; } }
+  .anim > * { animation: rise .55s cubic-bezier(.2,.7,.2,1) both; }
+  .anim > *:nth-child(1){animation-delay:.03s} .anim > *:nth-child(2){animation-delay:.09s} .anim > *:nth-child(3){animation-delay:.15s} .anim > *:nth-child(4){animation-delay:.21s} .anim > *:nth-child(5){animation-delay:.27s} .anim > *:nth-child(6){animation-delay:.33s}
+</style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand"><div class="mk">N</div><div class="nm">NexusAPI<small>模型与渠道评测</small></div></div>
+      <nav class="navg">
+        <div class="lbl">主流程</div>
+        <div class="nav on" data-v="dashboard" onclick="nav(this)"><span class="ic">◇</span> 总览</div>
+        <div class="nav" data-v="profiles" onclick="nav(this)"><span class="ic">⊕</span> API 配置</div>
+        <div class="nav" data-v="admission" onclick="nav(this)"><span class="ic">⊘</span> 准入评测</div>
+        <div class="nav" data-v="standard" onclick="nav(this)"><span class="ic">◎</span> 标准评测</div>
+        <div class="nav" data-v="reports" onclick="nav(this)"><span class="ic">▤</span> 报告中心</div>
+        <div class="nav" data-v="handoff" onclick="nav(this)"><span class="ic">⇪</span> 测试交付</div>
+      </nav>
+      <nav class="navg">
+        <div class="lbl">高级</div>
+        <div class="nav" data-v="quick" onclick="nav(this)"><span class="ic">⚡</span> 快速测试</div>
+        <div class="nav" data-v="stability" onclick="nav(this)"><span class="ic">∿</span> 稳定性测试</div>
+        <div class="nav" data-v="scenario" onclick="nav(this)"><span class="ic">◈</span> 场景测试</div>
+      </nav>
+      <div class="navg spacer"><div class="nav" data-v="manual" onclick="nav(this)"><span class="ic">?</span> 使用手册</div></div>
+    </aside>
+
+    <main class="main">
+      <!-- 总览 -->
+      <div class="view" id="v-dashboard">
+        <div class="wrap">
+          <div class="head"><div><h1>总览</h1></div></div>
+          <div class="bento anim">
+            <section class="card hero">
+              <div class="ey">当前进度</div>
+              <div class="track">
+                <div class="stp done"><span class="d">✓</span><span class="t">配置</span></div><span class="cn done"></span>
+                <div class="stp now"><span class="d">2</span><span class="t">准入</span></div><span class="cn"></span>
+                <div class="stp"><span class="d">3</span><span class="t">标准</span></div><span class="cn"></span>
+                <div class="stp"><span class="d">4</span><span class="t">报告</span></div><span class="cn"></span>
+                <div class="stp"><span class="d">5</span><span class="t">交付</span></div>
+              </div>
+              <h2>下一步：对 2 个新渠道运行准入评测</h2>
+              <p>准入通过后再跑标准评测，拿可对外的分级结论。</p>
+              <div class="acts"><button class="btn primary">去准入评测 →</button><button class="btn ghost">查看演示</button></div>
+            </section>
+            <section class="card tile health">
+              <div class="th"><span>渠道健康</span><span class="ic">📡</span></div>
+              <div class="num">12<em>个渠道</em></div>
+              <div class="bars"><i class="dot-good" style="flex:9;background:var(--mint)"></i><i class="dot-warn" style="flex:2;background:var(--amber)"></i><i class="dot-bad" style="flex:1;background:var(--coral)"></i></div>
+              <div class="legend"><span><b class="dot-good"></b>9 正常</span><span><b class="dot-warn"></b>2 观察</span><span><b class="dot-bad"></b>1 异常</span></div>
+            </section>
+            <section class="card tile">
+              <div class="th"><span>最近结论</span><span class="ic">🎯</span></div>
+              <div class="num">10<em>份</em></div>
+              <div class="legend"><span><b class="dot-good"></b>推荐 5</span><span><b class="dot-warn"></b>观察 3</span><span><b class="dot-bad"></b>不推荐 2</span></div>
+            </section>
+            <section class="card tile">
+              <div class="th"><span>待办</span><span class="ic">⏳</span></div>
+              <div class="num">3<em>项</em></div>
+              <div class="legend"><span><b class="dot-sky"></b>2 待复测</span><span><b class="dot-bad"></b>1 疑似计费</span></div>
+            </section>
+            <section class="card recent">
+              <div class="rh"><h3>最近报告</h3><a>全部报告 →</a></div>
+              <div class="rrow"><div class="w"><b>渠道 A · 主力候选</b><small>claude-sonnet · openai</small></div><div class="k">标准评测</div><span class="vp good">推荐</span><div class="when">2 分钟前</div><div class="go">›</div></div>
+              <div class="rrow"><div class="w"><b>渠道 B · 备用</b><small>gpt-4o · openai</small></div><div class="k">稳定性测试</div><span class="vp warn">观察</span><div class="when">1 小时前</div><div class="go">›</div></div>
+              <div class="rrow"><div class="w"><b>渠道 C · 低价</b><small>未知 · claude</small></div><div class="k">准入评测</div><span class="vp bad">不推荐</span><div class="when">今天 10:24</div><div class="go">›</div></div>
+              <div class="rrow"><div class="w"><b>渠道 D · 国内</b><small>glm-4 · openai</small></div><div class="k">场景 · 中文</div><span class="vp good">推荐</span><div class="when">昨天 18:50</div><div class="go">›</div></div>
+            </section>
+          </div>
+          <p class="note">现代风格原型 · 总览（Aurora Console）。品牌渐变(琥珀→珊瑚)做记忆点，bento 网格，大号数字。仅原型，数据为示意。</p>
+        </div>
+      </div>
+
+      <!-- API 配置 -->
+      <div class="view hidden" id="v-profiles">
+        <div class="wrap">
+          <div class="head"><div><h1><span class="step">第 1 步 · 配置</span>配置要评测的渠道</h1><div class="sub">普通用户只填必填项，点保存并测试。Key 只存本机。</div></div><div class="toolbtns"><button class="btn sm">导入</button><button class="btn sm">导出</button><button class="btn sm">刷新</button></div></div>
+          <div class="grid2 anim">
+            <section class="card formcard">
+              <div class="ct">添加 / 编辑渠道</div><div class="cd">不懂协议先选「AI 中转站 / OpenAI 兼容」模板。</div>
+              <div class="field"><label>配置模板</label><select><option>AI 中转站 / OpenAI 兼容（推荐）</option><option>Claude 原生 Messages</option><option>OpenAI 官方</option></select></div>
+              <div class="field"><label>名称<span class="req">*</span></label><input placeholder="例如 CC-Kiro-CH2 Claude" /><span class="hint">报告里会显示的名字。</span></div>
+              <div class="field"><label>默认模型<span class="req">*</span></label><input placeholder="claude-sonnet-4-5 / gpt-4.1" /></div>
+              <div class="field"><label>Base URL<span class="req">*</span></label><input placeholder="https://api.example.com" /><span class="hint">填到域名/网关 <code>https://api.example.com</code>，别带 <code>/v1/chat/completions</code>。</span></div>
+              <div class="field"><label>API Key<span class="req">*</span></label><input type="password" placeholder="粘贴平台提供的 API Key" /><span class="hint">只存本机，不进报告/导出。</span></div>
+              <details class="adv"><summary>高级设置（角色 / 协议 / 超时 / 价格 / 备注）</summary><div style="padding:0 16px 16px"><div class="field"><label>角色</label><select><option>被测 API</option><option>可信基线 API</option><option>主 / 评分 API</option></select></div></div></details>
+              <div class="formacts"><button class="btn primary">保存并测试配置</button><button class="btn ghost">仅保存</button></div>
+            </section>
+            <aside class="card tips">
+              <h4>填写要点</h4>
+              <div class="tip"><b>Base URL</b><span>填到域名/网关，别带业务路径。</span></div>
+              <div class="tip"><b>协议</b><span>多数中转站选 OpenAI Compatible；Claude 原生才选 Claude Messages。</span></div>
+              <div class="tip"><b>可信基线</b><span>官方/稳定渠道设为基线，用于横向对比与防换模型。</span></div>
+            </aside>
+          </div>
+          <section class="card chlist">
+            <div class="rh"><h3>已配置渠道 · 4</h3><a>仅看异常 ›</a></div>
+            <div class="chrow"><span class="hl good"></span><div class="chw"><b>渠道 A · 主力候选 <span class="rb target">被测</span></b><small>claude-sonnet-4-5 · openai 兼容</small></div><div class="chm">api.example-a.com</div><span class="vp good">已测·推荐</span><div style="display:flex;gap:7px"><button class="iconb">▶</button><button class="iconb">✎</button></div></div>
+            <div class="chrow"><span class="hl good"></span><div class="chw"><b>官方 Claude <span class="rb baseline">基线</span></b><small>claude-sonnet-4-5 · claude messages</small></div><div class="chm">api.anthropic.com</div><span class="vp good">已测·正常</span><div style="display:flex;gap:7px"><button class="iconb">▶</button><button class="iconb">✎</button></div></div>
+            <div class="chrow"><span class="hl warn"></span><div class="chw"><b>渠道 C · 低价 <span class="rb target">被测</span></b><small>未知 · claude messages</small></div><div class="chm">api.cheap-c.com</div><span class="vp warn">待复测</span><div style="display:flex;gap:7px"><button class="iconb">▶</button><button class="iconb">✎</button></div></div>
+            <div class="chrow"><span class="hl idle"></span><div class="chw"><b>渠道 E · 新接 <span class="rb target">被测</span></b><small>gpt-4o · openai 兼容</small></div><div class="chm">api.new-e.com</div><span class="vp idle">未测</span><div style="display:flex;gap:7px"><button class="iconb">▶</button><button class="iconb">✎</button></div></div>
+          </section>
+          <p class="note">现代风格原型 · API 配置。两栏表单 + 渠道健康行。</p>
+        </div>
+      </div>
+
+      <!-- 标准评测 + 结果 -->
+      <div class="view hidden" id="v-standard">
+        <div class="wrap">
+          <div class="head"><div><h1><span class="step">第 3 步 · 标准评测</span>一键跑通连通 + 稳定 + 场景</h1></div><div class="seg"><button onclick="rs('idle',this)">未开始</button><button class="on" onclick="rs('done',this)">已完成</button></div></div>
+          <div class="anim">
+            <section class="card runcard">
+              <div class="pick"><select><option>渠道 A · 主力候选（claude-sonnet-4-5）</option></select></div>
+              <div class="scope"><span class="s"><span class="t">✓</span>快速连通</span><span class="s"><span class="t">✓</span>3 轮稳定性</span><span class="s"><span class="t">✓</span>少量场景初筛</span></div>
+              <div class="rmeta">⏱ 预计 <b>~2 分钟</b> · 结果带样本数与置信区间</div>
+              <div class="formacts"><button class="btn primary">开始标准评测</button><div class="seg"><button class="on">3 轮</button><button>10 轮</button><button>30 轮</button></div></div>
+            </section>
+            <section class="card result" id="r-done">
+              <div class="verdict"><span class="bigpill">✅ 推荐</span><div class="vt"><b>渠道 A · 主力候选</b><small>稳定可用，可进入下一档复测。结论为概率判断，详见报告。</small></div></div>
+              <div class="mtiles">
+                <div class="mt"><span>成功率</span><b class="good">96%</b><small>[89%,99%] n=30</small></div>
+                <div class="mt"><span>P95 / P99</span><b>8.2s</b><small>P99 14.0s</small></div>
+                <div class="mt"><span>质量分</span><b>84</b><small>场景初筛</small></div>
+                <div class="mt"><span>计费审计</span><b class="good">合理</b><small>PALACE</small></div>
+                <div class="mt"><span>估算毛利</span><b>62%</b><small>按单价</small></div>
+              </div>
+              <div class="racts"><button class="btn primary">查看完整报告</button><button class="btn ghost">复制交付模板</button><button class="btn ghost">复测</button></div>
+            </section>
+            <section class="card runcard hidden" id="r-idle" style="color:var(--text-2);font-size:13px">选好渠道点「开始标准评测」，跑完这里出现分级结论与关键指标。</section>
+          </div>
+          <p class="note">现代风格原型 · 标准评测（评测执行范式，准入/快速/稳定/场景复用）。结果卡：大结论 pill + 指标块。右上切未开始/已完成。</p>
+        </div>
+      </div>
+
+      <!-- 报告中心 -->
+      <div class="view hidden" id="v-reports">
+        <div class="wrap">
+          <div class="head"><div><h1><span class="step">第 4 步 · 报告中心</span>所有结论与横向排行</h1></div><div class="toolbtns"><button class="btn sm">导出问题包</button></div></div>
+          <div class="anim">
+            <div class="filt"><div class="chips"><button class="on">全部 10</button><button>推荐 5</button><button>观察 3</button><button>不推荐 2</button></div><div class="seg"><button class="on">最新</button><button>按成功率</button><button>按质量分</button></div></div>
+            <section class="card" style="padding:8px 12px 12px">
+              <div class="rrow"><div class="w"><b>渠道 A · 主力候选</b><small>claude-sonnet · 标准</small></div><div class="k">96% · P95 8.2s</div><span class="vp good">推荐</span><div class="when">2 分钟前</div><div class="go">↗</div></div>
+              <div class="rrow"><div class="w"><b>渠道 B · 备用</b><small>gpt-4o · 稳定性</small></div><div class="k">91% · P95 6.1s</div><span class="vp warn">观察</span><div class="when">1 小时前</div><div class="go">↗</div></div>
+              <div class="rrow"><div class="w"><b>渠道 C · 低价</b><small>未知 · 准入</small></div><div class="k">协议异常</div><span class="vp bad">不推荐</span><div class="when">今天 10:24</div><div class="go">↗</div></div>
+              <div class="rrow"><div class="w"><b>渠道 F · 疑似换模型</b><small>claude? · 纯度</small></div><div class="k">RUT 疑似替换</div><span class="vp bad">不推荐</span><div class="when">昨天 14:02</div><div class="go">↗</div></div>
+            </section>
+            <section class="card" style="margin-top:18px;padding:8px 12px 14px">
+              <div class="rh"><h3>横向排行（同模型多渠道）</h3><a>切换指标 ›</a></div>
+              <div class="lbrow h"><span>#</span><span>渠道</span><span>成功率</span><span>P95</span><span>质量分</span></div>
+              <div class="lbrow"><span class="rk top">1</span><span>渠道 A · 主力候选</span><span class="v good">96%</span><span class="v">8.2s</span><span class="v">84</span></div>
+              <div class="lbrow"><span class="rk">2</span><span>渠道 D · 国内</span><span class="v good">94%</span><span class="v">5.0s</span><span class="v good">86</span></div>
+              <div class="lbrow"><span class="rk">3</span><span>渠道 B · 备用</span><span class="v">91%</span><span class="v">6.1s</span><span class="v">78</span></div>
+            </section>
+          </div>
+          <p class="note">现代风格原型 · 报告中心。结论筛选 + 列表 + 横向排行（真实页"谁更优"受显著性约束）。点任意行进报告详情。</p>
+        </div>
+      </div>
+
+      <!-- 准入评测 -->
+      <div class="view hidden" id="v-admission">
+        <div class="wrap">
+          <div class="head"><div><h1><span class="step">第 2 步 · 准入评测</span>门槛检查，过不了就停</h1><div class="sub">配置 / 连通 / 协议 / 身份 四道门槛，任一硬伤即不建议接入，省后续成本。</div></div><div class="seg"><button onclick="as('run',this)">运行中</button><button class="on" onclick="as('done',this)">已完成</button></div></div>
+          <div class="anim">
+            <section class="card runcard">
+              <div class="pick"><select><option>渠道 C · 低价</option><option>渠道 E · 新接</option></select></div>
+              <div class="scope"><span class="s"><span class="t">✓</span>配置准入</span><span class="s"><span class="t">✓</span>连通准入</span><span class="s"><span class="t">✓</span>协议（四根因）</span><span class="s"><span class="t">✓</span>身份（防虚标）</span></div>
+              <div class="rmeta">⏱ <b>~40 秒</b> · 仅短请求，几乎不耗 token</div>
+              <button class="btn primary">开始准入评测</button>
+            </section>
+            <section class="card result" id="a-done">
+              <div class="verdict"><span class="bigpill">✅ 准入通过</span><div class="vt"><b>渠道 C · 低价</b><small>四道门槛通过，可进入标准评测。身份为概率判断，非"确定为真"。</small></div></div>
+              <div class="gate">
+                <div class="gitem"><span class="gico pass">✓</span><div class="gn"><b>配置准入</b><small>URL / 协议 / 模型名 / Key 校验</small></div><div class="gr pass">通过</div></div>
+                <div class="gitem"><span class="gico pass">✓</span><div class="gn"><b>连通准入</b><small>非流式 + 流式短请求，错误归一</small></div><div class="gr pass">通过 · 401/404/429 正常</div></div>
+                <div class="gitem"><span class="gico pass">✓</span><div class="gn"><b>协议准入</b><small>SSE 四根因：块丢失 / delta 错配 / 工具参数丢失</small></div><div class="gr pass">未见四根因</div></div>
+                <div class="gitem"><span class="gico warn">~</span><div class="gn"><b>身份准入</b><small>tokenizer 粗筛 + 行为指纹</small></div><div class="gr warn">基本符合（疑似，需 RUT 确认）</div></div>
+              </div>
+              <div class="racts"><button class="btn primary">去标准评测 →</button><button class="btn ghost">查看准入报告</button></div>
+            </section>
+            <section class="card runcard hidden" id="a-run" style="color:var(--text-2);font-size:13px">正在检查：<b style="color:var(--text)">协议准入</b>（SSE 事件 / 工具调用结构）…</section>
+          </div>
+          <p class="note">现代风格原型 · 准入门槛。四道门槛逐条 pass/fail；身份只写"疑似"，任一硬伤即停。右上切运行中/已完成。</p>
+        </div>
+      </div>
+
+      <!-- 测试交付 -->
+      <div class="view hidden" id="v-handoff">
+        <div class="wrap">
+          <div class="head"><div><h1><span class="step">第 5 步 · 测试交付</span>一份能看懂、能对外的结论</h1></div></div>
+          <div class="grid2 anim">
+            <section class="card formcard">
+              <div class="ct">交付模板预览</div><div class="cd">渠道 A · 标准评测</div>
+              <div class="tmpl"><span class="h"># 渠道 A 评测交付</span>
+
+<span class="m">项目：</span>NexusAPI 渠道复测   <span class="m">批次：</span>2026-06-02 第一批
+<span class="m">测试人：</span>运营同事   <span class="m">目的：</span>初筛可用候选
+
+<span class="h">## 结论</span>
+<span class="g">✅ 推荐</span>：稳定可用，建议进入主力候选。
+
+<span class="h">## 关键指标</span>
+- 成功率 96%（95% CI [89%, 99%]，n=30）
+- 延迟 P95 8.2s / P99 14.0s
+- 质量分 84 · 计费审计：合理（PALACE）
+
+<span class="h">## 异常 / 需关注</span>
+- 身份为概率判断，建议高价档 RUT 复核
+
+<span class="m">工具 0.1.5 · 模板 2.0.0 · 复核人：待复核</span></div>
+              <div class="formacts" style="margin-top:18px"><button class="btn primary">复制 Markdown</button><button class="btn ghost">导出 HTML</button><button class="btn ghost">导出问题包</button></div>
+            </section>
+            <aside class="card formcard">
+              <div class="ct">本次测试信息</div><div class="cd">填写后自动带入交付模板。</div>
+              <div class="field"><label>项目 / 客户</label><input placeholder="例如 NexusAPI 渠道复测" /></div>
+              <div class="field"><label>测试批次</label><input placeholder="例如 2026-06-02 第一批" /></div>
+              <div class="field"><label>测试人员</label><input placeholder="例如 运营同事" /></div>
+              <div class="field"><label>复核人</label><input placeholder="高敏感结论需第二人复核" /></div>
+              <button class="btn ghost">保存信息</button>
+            </aside>
+          </div>
+          <section class="card formcard" style="margin-top:18px">
+            <div class="ct" style="margin-bottom:16px">交付前检查清单</div>
+            <div class="checklist">
+              <label><input type="checkbox" /> 已确认配置名称、模型名、协议填写正确</label>
+              <label><input type="checkbox" /> 已完成标准评测，或单独完成快速 + 稳定性测试</label>
+              <label><input type="checkbox" /> 已查看成功率、慢请求与错误诊断（不只看成功率）</label>
+              <label><input type="checkbox" /> 已准备报告路径、异常说明与平台 Request ID</label>
+            </div>
+          </section>
+          <p class="note">现代风格原型 · 测试交付。本次测试信息（从首页移来，交付时填）→ 实时进模板；模板带 CI/分位数/计费审计 + 溯源行。</p>
+        </div>
+      </div>
+
+      <!-- 快速测试 -->
+      <div class="view hidden" id="v-quick">
+        <div class="wrap">
+          <div class="head"><div><h1><span class="step">高级 · 快速连通</span>一次短请求，确认能不能调通</h1><div class="sub">手动排查时用：确认 URL、Key、模型名、协议是否正确。</div></div></div>
+          <div class="anim">
+            <section class="card runcard"><div class="pick"><select><option>渠道 E · 新接（gpt-4o）</option></select></div><div class="rmeta">⏱ <b>~3 秒</b> · 一条短请求，几乎不耗 token</div><button class="btn primary">运行快速测试</button></section>
+            <section class="card result">
+              <div class="verdict"><span class="bigpill">✅ 调通</span><div class="vt"><b>渠道 E · 新接</b><small>URL、鉴权、模型名、协议都正常，可继续准入评测。</small></div></div>
+              <div class="gate">
+                <div class="gitem"><span class="gico pass">✓</span><div class="gn"><b>URL 可达</b></div><div class="gr pass">200 · 首包 220ms</div></div>
+                <div class="gitem"><span class="gico pass">✓</span><div class="gn"><b>鉴权通过</b></div><div class="gr pass">Key 有效</div></div>
+                <div class="gitem"><span class="gico pass">✓</span><div class="gn"><b>模型存在</b></div><div class="gr pass">gpt-4o</div></div>
+                <div class="gitem"><span class="gico pass">✓</span><div class="gn"><b>协议匹配</b></div><div class="gr pass">openai 兼容 · 总耗时 1.1s</div></div>
+              </div>
+            </section>
+          </div>
+          <p class="note">现代风格原型 · 快速测试（最轻档）。四项基础连通逐条确认。</p>
+        </div>
+      </div>
+
+      <!-- 稳定性测试 -->
+      <div class="view hidden" id="v-stability">
+        <div class="wrap">
+          <div class="head"><div><h1><span class="step">高级 · 稳定性</span>多轮采样，看尾部延迟与波动</h1><div class="sub">延迟重尾，重点看 P95/P99，不看平均。</div></div></div>
+          <div class="anim">
+            <section class="card runcard">
+              <div class="pick"><select><option>渠道 B · 备用（gpt-4o）</option></select></div>
+              <div class="formacts" style="margin-bottom:16px;flex-wrap:wrap"><span style="color:var(--text-2);font-size:12.5px">轮数</span><div class="seg"><button>3 冒烟</button><button class="on">10 基础</button><button>30 完整</button></div><span style="color:var(--text-2);font-size:12.5px">单 API 并发</span><div class="seg"><button class="on">1</button><button>2</button><button>4</button></div></div>
+              <div class="rmeta">⏱ <b>~50 秒</b> · 结果带样本数与 95% 置信区间</div>
+              <button class="btn primary">开始稳定性测试</button>
+            </section>
+            <section class="card result">
+              <div class="verdict"><span class="bigpill" style="color:var(--amber);background:rgba(246,181,107,.13);border-color:rgba(246,181,107,.34)">⚠ 观察</span><div class="vt"><b>渠道 B · 备用</b><small>成功率达标但尾部延迟偏高，建议观察或用于低延迟要求不高的场景。</small></div></div>
+              <div class="mtiles">
+                <div class="mt"><span>成功率</span><b class="good">91%</b><small>[82%,96%] n=10</small></div>
+                <div class="mt"><span>P50</span><b>2.4s</b><small>中位</small></div>
+                <div class="mt"><span>P95</span><b>6.1s</b><small>慢请求</small></div>
+                <div class="mt"><span>P99</span><b>11.8s</b><small>尾部</small></div>
+                <div class="mt"><span>断流/超时</span><b>1</b><small>timeout ×1</small></div>
+              </div>
+              <div class="racts"><button class="btn primary">查看报告</button><button class="btn ghost">提高到 30 轮复测</button></div>
+            </section>
+          </div>
+          <p class="note">现代风格原型 · 稳定性测试。轮数/并发可调；结果以 P50/P95/P99 呈现重尾，成功率带 CI。</p>
+        </div>
+      </div>
+
+      <!-- 场景测试 -->
+      <div class="view hidden" id="v-scenario">
+        <div class="wrap">
+          <div class="head"><div><h1><span class="step">高级 · 场景能力</span>复杂任务能力分项评估</h1><div class="sub">质量分仅快速筛查，不等同人工评审。</div></div></div>
+          <div class="anim">
+            <section class="card runcard">
+              <div class="pick"><select><option>渠道 D · 国内（glm-4）</option></select></div>
+              <div style="margin:6px 0 16px"><div style="color:var(--text-2);font-size:12.5px;margin-bottom:10px">场景包</div><div class="scope"><span class="s" style="border-color:rgba(246,181,107,.35);color:var(--amber)">低成本初筛</span><span class="s">编程能力</span><span class="s">长上下文 NIAH</span><span class="s" style="border-color:rgba(246,181,107,.35);color:var(--amber)">中文 CMMLU</span><span class="s">指令遵循 IFEval</span></div></div>
+              <div class="rmeta">⏱ <b>~3 分钟</b> · 已选 2 个场景包 · 重复 1 次</div>
+              <button class="btn primary">开始场景测试</button>
+            </section>
+            <section class="card result">
+              <div class="verdict"><span class="bigpill">✅ 推荐</span><div class="vt"><b>渠道 D · 国内 · 中文能力</b><small>中文与基础场景表现良好；平均质量分 86。各维度分项见下。</small></div></div>
+              <div class="pit"><span class="pi ok">✓</span><div class="pn"><b>中文知识 / 推理</b></div><div class="pd">CMMLU 子集 · 成功率 100%</div><span class="vp good">质量 88</span></div>
+              <div class="pit"><span class="pi ok">✓</span><div class="pn"><b>中文写作 / 指令遵循</b></div><div class="pd">IFEval 可验证约束全过</div><span class="vp good">质量 90</span></div>
+              <div class="pit"><span class="pi part">◐</span><div class="pn"><b>长上下文 NIAH</b></div><div class="pd">针检索命中，偏长输入略慢</div><span class="vp warn">质量 78</span></div>
+              <div class="pit"><span class="pi part">◐</span><div class="pn"><b>结构化 JSON</b></div><div class="pd">偶发多余字段</div><span class="vp warn">质量 80</span></div>
+              <div class="racts"><button class="btn primary">查看报告</button><button class="btn ghost">提高重复次数复测</button></div>
+            </section>
+          </div>
+          <p class="note">现代风格原型 · 场景测试。场景包多选；结果按能力维度分项给质量分（接 BFCL/NIAH/IFEval 判分）。</p>
+        </div>
+      </div>
+
+      <!-- 报告详情 -->
+      <div class="view hidden" id="v-detail">
+        <div class="wrap">
+          <span class="back" onclick="document.querySelector('.nav[data-v=&quot;reports&quot;]').click()">‹ 返回报告中心</span>
+          <div class="anim">
+            <div class="rdtier">① 给业务人员看的结论</div>
+            <section class="card result">
+              <div class="verdict"><span class="bigpill">✅ 推荐</span><div class="vt"><b>渠道 A · 主力候选 · 标准评测</b><small>稳定可用，建议进入主力候选；可进一步做多时段 / RUT 纯度复测。下一步：纳入灰度。</small></div></div>
+              <div class="mtiles">
+                <div class="mt"><span>成功率</span><b class="good">96%</b><small>[89%,99%] n=30</small></div>
+                <div class="mt"><span>P95 / P99</span><b>8.2s</b><small>P99 14.0s</small></div>
+                <div class="mt"><span>质量分</span><b>84</b><small>场景初筛</small></div>
+                <div class="mt"><span>计费审计</span><b class="good">合理</b><small>PALACE</small></div>
+                <div class="mt"><span>错误</span><b>2</b><small>均 429 限流</small></div>
+              </div>
+            </section>
+            <div class="rdtier">② 专业分项结果</div>
+            <section class="card">
+              <div class="pit"><span class="pi ok">✓</span><div class="pn"><b>P0 配置准入</b></div><div class="pd">通过</div><span class="vp good">通过</span></div>
+              <div class="pit"><span class="pi ok">✓</span><div class="pn"><b>P1 连通准入</b></div><div class="pd">非流式/流式均正常</div><span class="vp good">通过</span></div>
+              <div class="pit"><span class="pi ok">✓</span><div class="pn"><b>P2 协议准入</b></div><div class="pd">未见四根因</div><span class="vp good">通过</span></div>
+              <div class="pit"><span class="pi ok">✓</span><div class="pn"><b>P3 稳定性</b></div><div class="pd">96% · P95 8.2s · P99 14s</div><span class="vp good">达标</span></div>
+              <div class="pit"><span class="pi part">◐</span><div class="pn"><b>P4 能力</b></div><div class="pd">质量分 84（场景初筛）</div><span class="vp warn">可深测</span></div>
+              <div class="pit"><span class="pi part">◐</span><div class="pn"><b>P5 身份 / 纯度</b></div><div class="pd">基本符合（疑似）· 待 RUT</div><span class="vp warn">疑似符合</span></div>
+              <div class="pit"><span class="pi ok">✓</span><div class="pn"><b>P6 成本计费</b></div><div class="pd">PALACE 合理 · 毛利 62%</div><span class="vp good">合理</span></div>
+            </section>
+            <div class="rdtier">③ 溯源与方法学（对外辩护用）</div>
+            <section class="card">
+              <div class="metastrip"><span>工具 <b>0.1.5</b></span><span>模板 <b>2.0.0</b></span><span>快照 <b>2026-06-02</b></span><span>测试包 <b>run-A-0602</b></span><span>评测人 <b>运营同事</b></span><span>复核人 <b>待复核</b></span></div>
+              <details class="adv" style="margin:0 16px 16px"><summary>方法学说明 + 参考文献</summary><div style="padding:0 16px 14px;font-size:12.5px;color:var(--text-2);line-height:1.75"><div>· 比例指标带样本数 + 95% Wilson CI，小样本不用 CLT。</div><div>· 延迟重尾，报告 P50/P95/P99；渠道对比 CI 重叠不下"A 优于 B"。</div><div>· 身份/计费仅"疑似/需上游解释"；RUT / PALACE / Krippendorff α 出处见完整报告。</div></div></details>
+              <div class="discl">免责：身份/纯度/计费判断为软件黑盒概率结论，仅"疑似 / 证据支持 / 需上游解释"，不构成"确定造假"认定；量化降级存在盲区。报告不含 API Key。</div>
+            </section>
+          </div>
+          <p class="note">现代风格原型 · 报告详情。① 业务结论先行 ② 专业分项 P0–P7 ③ 溯源/方法学/免责降级末尾且折叠。</p>
+        </div>
+      </div>
+
+      <!-- 使用手册 -->
+      <div class="view hidden" id="v-manual">
+        <div class="wrap">
+          <div class="head"><div><h1><span class="step">帮助</span>使用手册</h1><div class="sub">不懂怎么测？这页讲清流程、按钮和常见问题。所有数据只保存在本机。</div></div></div>
+          <div class="docgrid anim">
+            <section class="card doc">
+              <div class="callout"><span class="ci">🚀</span><div><b>第一次用？只走这 5 步</b><p>配置 API → 准入评测 → 标准评测 → 看报告 → 复制交付。普通操作员不用碰高级测试。</p></div></div>
+              <h2>快速开始</h2>
+              <p>在「API 配置」填入平台给的地址、Key、模型名（不懂协议先选"AI 中转站 / OpenAI 兼容"），点 <code>保存并测试配置</code>。通过后回总览，跟着"下一步"提示走即可。</p>
+              <h2>五步流程说明</h2>
+              <ul>
+                <li><b>① API 配置</b>：录入要测的渠道；Key 只存本机、不进报告/导出。</li>
+                <li><b>② 准入评测</b>：配置 / 连通 / 协议 / 身份 四道门槛，过不了就停，省额度。</li>
+                <li><b>③ 标准评测</b>：一键跑连通 + 稳定性 + 少量场景，拿分级结论。</li>
+                <li><b>④ 报告中心</b>：看结论、横向排行、失败原因和报告路径。</li>
+                <li><b>⑤ 测试交付</b>：复制交付模板，把结果、异常、附件一次说清。</li>
+              </ul>
+              <h2>结论怎么看</h2>
+              <p>结论分 <b>推荐 / 观察 / 不推荐</b>。成功率带 95% 置信区间，延迟看 P95/P99（不看平均）。身份与计费只给"疑似 / 需上游解释"，不写"确定造假"——这是软件黑盒的边界，不是能力不足。</p>
+              <h2>数据与安全</h2>
+              <p>所有数据只保存在本机 <code>NexusAPI数据</code>。API Key 存系统钥匙串；导出配置、报告、日志都不带真实 Key，敏感字段自动脱敏。</p>
+              <h2>常见问题</h2>
+              <ul>
+                <li><b>空响应 / 内容块缺失</b>：多半协议选错，试试 OpenAI Compatible 或直连同协议。</li>
+                <li><b>偶发超时</b>：复杂任务把超时调到 60000–120000 ms。</li>
+                <li><b>看不懂结论</b>：先看报告第一段"给业务人员看的结论"，再看明细。</li>
+              </ul>
+            </section>
+            <aside class="card toc">
+              <div class="tt">本页目录</div>
+              <a class="on">快速开始</a><a>五步流程说明</a><a>结论怎么看</a><a>数据与安全</a><a>常见问题</a>
+            </aside>
+          </div>
+          <p class="note">现代风格原型 · 使用手册。左正文 + 右侧目录（真实页渲染 docs/USER_MANUAL.md）。</p>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script>
+    function nav(el){ const v=el.getAttribute('data-v'); document.querySelectorAll('.nav').forEach(n=>n.classList.remove('on')); el.classList.add('on'); document.querySelectorAll('.view').forEach(x=>x.classList.add('hidden')); const t=document.getElementById('v-'+v); t.classList.remove('hidden'); const a=t.querySelector('.anim'); if(a){a.classList.remove('anim'); void a.offsetWidth; a.classList.add('anim');} window.scrollTo(0,0); }
+    function rs(s,btn){ document.getElementById('r-done').classList.toggle('hidden', s!=='done'); document.getElementById('r-idle').classList.toggle('hidden', s!=='idle'); document.querySelectorAll('#v-standard .head .seg button').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
+    function as(s,btn){ document.getElementById('a-done').classList.toggle('hidden', s!=='done'); document.getElementById('a-run').classList.toggle('hidden', s!=='run'); document.querySelectorAll('#v-admission .head .seg button').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
+    function openDetail(){ document.querySelectorAll('.view').forEach(x=>x.classList.add('hidden')); const t=document.getElementById('v-detail'); t.classList.remove('hidden'); const a=t.querySelector('.anim'); if(a){a.classList.remove('anim'); void a.offsetWidth; a.classList.add('anim');} window.scrollTo(0,0); }
+    document.querySelectorAll('#v-reports .rrow').forEach(r=>r.addEventListener('click', openDetail));
+  </script>
+</body>
+</html>
