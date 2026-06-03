@@ -16,6 +16,8 @@
 //      首次真实跑应停在「审计」：跑并记录裁判/RUT 结论，但不据此改变任何对外结论。
 
 import { executeTestRequest } from "./test-runner.mjs";
+import { assessJudgePanel } from "./judge-orchestration.mjs";
+import { selectEligibleJudges } from "./llm-judge.mjs";
 
 // env 闸门：默认关闭。真实激活需显式置 1，且仍受额度守卫约束。
 export function isLiveJudgeEnabled() {
@@ -59,5 +61,77 @@ export function createProfileSampler(profile, { runRequest = executeTestRequest,
   if (!profile) throw new Error("createProfileSampler 需要一个 profile");
   return async function sample(prompt) {
     return runRequest(profile, prompt, { runId, caseId, writeLog: true, abortSignal });
+  };
+}
+
+// 裁判额度守卫：题数 × 可用裁判数 = 调用数，超 maxCalls 则截断题目（不静默）。
+export function judgeBudgetPlan(itemCount, judgeCount, maxCalls) {
+  const perItem = Math.max(1, judgeCount);
+  const maxItems = Math.max(0, Math.floor(maxCalls / perItem));
+  const itemsToJudge = Math.min(itemCount, maxItems);
+  return {
+    perItem,
+    maxItems,
+    itemsToJudge,
+    dropped: Math.max(0, itemCount - itemsToJudge),
+    callsPlanned: itemsToJudge * perItem,
+  };
+}
+
+// LLM 裁判「审计模式」真实跑：只产出并记录裁判结论，绝不据此改变任何对外评测结论
+// （上线顺序第二步：审计）。受 maxCalls 硬上限约束，超额截断题目并显式声明丢弃。
+// runRequest 默认 executeTestRequest，可注入 mock 测试。真实跑由上层在
+// isLiveJudgeEnabled() 为真且提供裁判 profile 后触发。
+export async function runLiveJudgeAudit({
+  targetModel = "",
+  items = [], // [{ question, answer, rubric }]
+  judgeProfiles = [],
+  scale = 100,
+  maxCalls = 50,
+  runRequest = executeTestRequest,
+  runId = "llm-judge-audit",
+  abortSignal = null,
+} = {}) {
+  const judgeModels = judgeModelsFromProfiles(judgeProfiles);
+  const { eligible, excluded } = selectEligibleJudges(judgeModels, targetModel);
+  if (eligible.length === 0) {
+    return {
+      mode: "audit",
+      ok: false,
+      reason: "no_eligible_judge",
+      excluded,
+      needsHumanReview: true,
+      callsUsed: 0,
+      note: "无可用裁判（全部与被测同家族，或未配置裁判渠道），结果不可信，需人工复核。",
+    };
+  }
+  const plan = judgeBudgetPlan(items.length, eligible.length, maxCalls);
+  if (plan.itemsToJudge === 0) {
+    return {
+      mode: "audit",
+      ok: false,
+      reason: "budget_too_small",
+      needsHumanReview: true,
+      callsUsed: 0,
+      note: `额度上限 ${maxCalls} 次不足以评一题×${plan.perItem} 个裁判，未发任何请求。`,
+    };
+  }
+  const used = items.slice(0, plan.itemsToJudge);
+  const callJudge = createJudgeCaller(judgeProfiles, { runRequest, runId, abortSignal });
+  const panel = await assessJudgePanel({ items: used, judges: judgeModels, targetModel, scale, callJudge });
+  return {
+    mode: "audit", // 仅记录，不改变任何对外结论
+    ok: true,
+    judgeCount: eligible.length,
+    itemsJudged: used.length,
+    droppedForBudget: plan.dropped,
+    maxCalls,
+    callsUsed: plan.callsPlanned, // 每题对每个可用裁判恰好发 1 次
+    excluded,
+    ...panel,
+    note:
+      plan.dropped > 0
+        ? `审计模式：受额度上限 ${maxCalls} 次约束，只评了前 ${used.length} 题、丢弃 ${plan.dropped} 题（已显式声明，非静默截断）。裁判结论仅记录，不改变任何对外结论。`
+        : "审计模式：裁判结论仅记录，不改变任何对外评测结论。",
   };
 }

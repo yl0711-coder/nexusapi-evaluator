@@ -5,6 +5,8 @@ import {
   createJudgeCaller,
   createProfileSampler,
   judgeModelsFromProfiles,
+  judgeBudgetPlan,
+  runLiveJudgeAudit,
   isLiveJudgeEnabled,
   isLiveRutEnabled,
 } from "../server/live-adapters.mjs";
@@ -110,6 +112,80 @@ test("createProfileSampler drives runRutAudit with mocked sampling (zero real ca
   assert.equal(out.callsUsed, 8);
   assert.equal(calls.length, 8);
   assert.ok(out.audit);
+});
+
+test("judgeBudgetPlan caps items so items×judges <= maxCalls", () => {
+  // 3 裁判, 上限 50 → 每题 3 次 → 最多 16 题
+  const plan = judgeBudgetPlan(40, 3, 50);
+  assert.equal(plan.perItem, 3);
+  assert.equal(plan.maxItems, 16);
+  assert.equal(plan.itemsToJudge, 16);
+  assert.equal(plan.dropped, 24);
+  assert.equal(plan.callsPlanned, 48);
+  assert.ok(plan.callsPlanned <= 50);
+});
+
+test("runLiveJudgeAudit runs in audit mode within budget (mocked)", async () => {
+  const judges = [
+    { id: "j1", defaultModel: "gpt-4.1" },
+    { id: "j2", defaultModel: "gemini-1.5-pro" },
+  ];
+  const { run, calls } = makeMockRunner((profile) => ({
+    success: true,
+    responseText: `评分：${profile.id === "j1" ? 72 : 78}`,
+  }));
+  const items = Array.from({ length: 40 }, (_, i) => ({ question: `Q${i}`, answer: `A${i}` }));
+  const out = await runLiveJudgeAudit({
+    targetModel: "claude-sonnet-4-5",
+    items,
+    judgeProfiles: judges,
+    maxCalls: 50,
+    runRequest: run,
+  });
+  assert.equal(out.mode, "audit");
+  assert.equal(out.ok, true);
+  assert.equal(out.judgeCount, 2);
+  assert.equal(out.itemsJudged, 25); // floor(50/2)
+  assert.equal(out.droppedForBudget, 15);
+  assert.equal(out.callsUsed, 50);
+  assert.equal(calls.length, 50, "恰好 50 次，不超额度");
+  assert.match(out.note, /审计模式/);
+  assert.match(out.note, /丢弃 15 题/);
+});
+
+test("runLiveJudgeAudit refuses when no eligible judge (same family) — zero calls", async () => {
+  const judges = [{ id: "j1", defaultModel: "claude-sonnet-4-5" }];
+  const { run, calls } = makeMockRunner(() => ({ success: true, responseText: "评分：90" }));
+  const out = await runLiveJudgeAudit({
+    targetModel: "claude-opus-4-1", // 同 claude 家族 → 裁判被排除
+    items: [{ question: "Q", answer: "A" }],
+    judgeProfiles: judges,
+    maxCalls: 50,
+    runRequest: run,
+  });
+  assert.equal(out.ok, false);
+  assert.equal(out.reason, "no_eligible_judge");
+  assert.equal(out.needsHumanReview, true);
+  assert.equal(calls.length, 0, "无可用裁判时不发任何请求");
+});
+
+test("runLiveJudgeAudit refuses when budget too small for even one item", async () => {
+  const judges = [
+    { id: "j1", defaultModel: "gpt-4.1" },
+    { id: "j2", defaultModel: "gemini-1.5-pro" },
+    { id: "j3", defaultModel: "qwen-max" },
+  ];
+  const { run, calls } = makeMockRunner(() => ({ success: true, responseText: "评分：80" }));
+  const out = await runLiveJudgeAudit({
+    targetModel: "claude-sonnet-4-5",
+    items: [{ question: "Q", answer: "A" }],
+    judgeProfiles: judges,
+    maxCalls: 2, // < 3 裁判 → 一题都跑不了
+    runRequest: run,
+  });
+  assert.equal(out.ok, false);
+  assert.equal(out.reason, "budget_too_small");
+  assert.equal(calls.length, 0);
 });
 
 test("runRutAudit blocks (zero calls) when over budget", async () => {
