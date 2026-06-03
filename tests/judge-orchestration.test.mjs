@@ -22,6 +22,21 @@ test("parseJudgeScore handles labeled / fraction / bare / clamp / none", () => {
   assert.equal(parseJudgeScore("我给 92 分"), 92);
   assert.equal(parseJudgeScore("评分：250"), 100); // 越界裁剪
   assert.equal(parseJudgeScore("无法评分"), null);
+  assert.equal(parseJudgeScore("85"), 85); // 单一裸数字可采用
+});
+
+test("parseJudgeScore rejects dates and out-of-range noise instead of inventing scores", () => {
+  // 旧实现 bug：分数回退把日期当分数
+  assert.equal(parseJudgeScore("更新于 3/2024，质量尚可"), null); // 旧：0.148
+  assert.equal(parseJudgeScore("3/2024"), null);
+  // 旧实现 bug：裸数字 {1,3} 截断年份
+  assert.equal(parseJudgeScore("提到 2024 年的数据，给 85 分"), 85); // 旧：202→100
+  // 带上下文优先于无关数字
+  assert.equal(parseJudgeScore("参考了 3 篇资料，得分 78"), 78);
+  // 多个无上下文数字 → 放弃（不猜）
+  assert.equal(parseJudgeScore("引用了 2023 和 2024 两年的数据"), null);
+  // 合理分数式仍可用
+  assert.equal(parseJudgeScore("4.5/5", { scale: 100 }), 90);
 });
 
 // mock 裁判：按 judge 名返回固定分数，零真实请求

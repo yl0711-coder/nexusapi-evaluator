@@ -75,3 +75,23 @@ test("auditRunTokenUsage reports insufficient sample on empty input", () => {
   assert.equal(r.suspicious, false);
   assert.equal(r.verdict, "样本不足");
 });
+
+test("auditRunTokenUsage does not dilute output ratio with input-only samples", () => {
+  // 1 条只报 input（无 output），其余正常报 output。旧实现会把这条的整段输出估算
+  // 计入 estOut、reported 计 0，把 outputRatio 拉低、误触 undercount。
+  const matched = auditTokenUsage({ outputText: longOutput, usage: {} }).estimatedOutput;
+  const samples = [
+    { inputText: longOutput, usage: { inputTokens: 5 } }, // 只有 input，无 output
+    ...Array.from({ length: 6 }, () => ({
+      inputText: "短输入",
+      outputText: longOutput,
+      usage: { inputTokens: 5, outputTokens: matched },
+    })),
+  ];
+  const r = auditRunTokenUsage(samples);
+  assert.equal(r.n, 7);
+  assert.equal(r.outputSamples, 6); // 只统计真正报了 output 的样本
+  assert.equal(r.inputSamples, 7);
+  assert.ok(Math.abs(r.outputRatio - 1) < 0.2, `outputRatio 应≈1，实际 ${r.outputRatio}`);
+  assert.ok(!r.flags.some((f) => f.code === "systematic_output_undercount"), "不应误报少计");
+});

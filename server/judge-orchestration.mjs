@@ -27,22 +27,42 @@ export function buildJudgePrompt({ question = "", answer = "", rubric = "", scal
   ].join("\n");
 }
 
-// 从裁判文本里抽取分数：优先"评分：NN"，其次"NN/100"，最后裸数字；越界裁剪。
+// 从裁判文本里抽取分数。多级回退，但每级都收紧到"可信"才采用，否则返回 null
+// （null = 无法解析，上游会跳过该裁判）。绝不把"猜出来的数字"伪装成有效评分——
+// 旧实现的裸数字/分数回退会把 "3/2024" 解析成 0.148、把 "…2024…85分" 截成 202→100。
 export function parseJudgeScore(text, { scale = DEFAULT_JUDGE_SCALE } = {}) {
   const t = String(text || "");
-  let raw = NaN;
-  const labeled = t.match(/评分[:：]\s*([0-9]+(?:\.[0-9]+)?)/);
-  if (labeled) raw = Number(labeled[1]);
-  if (!Number.isFinite(raw)) {
-    const frac = t.match(/([0-9]+(?:\.[0-9]+)?)\s*\/\s*([0-9]+)/);
-    if (frac && Number(frac[2]) > 0) raw = (Number(frac[1]) / Number(frac[2])) * scale;
+  const clamp = (v) => Math.max(0, Math.min(scale, v));
+
+  // 1) 显式 "评分：NN"（prompt 要求的格式，最高优先级，越界裁剪）
+  const labeled = t.match(/评分[:：]\s*(\d+(?:\.\d+)?)/);
+  if (labeled) return clamp(Number(labeled[1]));
+
+  // 2) 带计分上下文的数字："给 NN"/"得分 NN"/"score NN"/"NN 分"（排除 分类/分钟）
+  const ctx = t.match(/(?:给(?:出)?\s*|得分[:：]?\s*|score[:：]?\s*)(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*分(?![类钟])/i);
+  if (ctx) {
+    const v = Number(ctx[1] ?? ctx[2]);
+    if (Number.isFinite(v) && v >= 0 && v <= scale) return v;
   }
-  if (!Number.isFinite(raw)) {
-    const num = t.match(/([0-9]{1,3}(?:\.[0-9]+)?)/);
-    if (num) raw = Number(num[1]);
+
+  // 3) "NN/MM" 分数式：分母必须是合理满分、分子不超分母（排除 "3/2024" 这类日期）
+  const frac = t.match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+)/);
+  if (frac) {
+    const num = Number(frac[1]);
+    const den = Number(frac[2]);
+    const plausibleDen = den === scale || [5, 10, 20, 50, 100, 1000].includes(den);
+    if (den > 0 && plausibleDen && num <= den) return clamp((num / den) * scale);
   }
-  if (!Number.isFinite(raw)) return null;
-  return Math.max(0, Math.min(scale, raw));
+
+  // 4) 兜底：全文"恰好只有一个"数字 token 且落在 [0, scale] 时才采用
+  //    （有第二个数字 token——日期/年份/小数项——就放弃，宁可记 null）
+  const tokens = t.match(/\d+(?:\.\d+)?/g) || [];
+  if (tokens.length === 1) {
+    const v = Number(tokens[0]);
+    if (v >= 0 && v <= scale) return v;
+  }
+
+  return null;
 }
 
 // 单答案多裁判评分。callJudge(judge, prompt) => Promise<string>（裁判原始文本）。

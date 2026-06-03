@@ -103,18 +103,26 @@ export function auditRunTokenUsage(samples) {
   let repIn = 0;
   let repOut = 0;
   let n = 0;
+  let nIn = 0;
+  let nOut = 0;
 
   for (const s of samples || []) {
-    const eo = s.estimatedOutputTokens ?? estimateTokens(s.outputText || "");
-    const ei = s.estimatedInputTokens ?? estimateTokens(s.inputText || "");
     const ro = numberOrNull(s.reportedOutputTokens ?? s.usage?.outputTokens);
     const ri = numberOrNull(s.reportedInputTokens ?? s.usage?.inputTokens);
     if (ro === null && ri === null) continue;
-    estOut += eo;
-    estIn += ei;
-    repOut += ro || 0;
-    repIn += ri || 0;
     n += 1;
+    // 分端累加：缺哪一端就不计入哪一端的估算/求和，否则会用整段估算 vs 0 报告
+    // 拉低该端比值，反向误报 systematic_*_undercount。
+    if (ro !== null) {
+      estOut += s.estimatedOutputTokens ?? estimateTokens(s.outputText || "");
+      repOut += ro;
+      nOut += 1;
+    }
+    if (ri !== null) {
+      estIn += s.estimatedInputTokens ?? estimateTokens(s.inputText || "");
+      repIn += ri;
+      nIn += 1;
+    }
   }
 
   if (n === 0) {
@@ -150,6 +158,8 @@ export function auditRunTokenUsage(samples) {
   const suspicious = flags.some((f) => f.level === "high" || f.level === "medium");
   return {
     n,
+    inputSamples: nIn,
+    outputSamples: nOut,
     estimatedInputTokens: estIn,
     estimatedOutputTokens: estOut,
     reportedInputTokens: repIn,
