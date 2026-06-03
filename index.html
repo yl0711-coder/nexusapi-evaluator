@@ -71,8 +71,8 @@
             </div>
 
             <!-- 常态：有配置时显示 -->
-            <div id="dashboard-populated">
-              <section class="panel pilot">
+            <div id="dashboard-populated" class="bento anim">
+              <section class="panel pilot hero">
                 <p class="eyebrow">当前进度</p>
                 <div class="rail">
                   <div class="workflow-step" data-step="profiles"><span class="bead">1</span><span class="name">配置</span></div>
@@ -88,23 +88,22 @@
                 <div id="next-action" class="next-action">正在判断当前下一步...</div>
               </section>
 
-              <section class="status-grid">
-                <article class="panel stat">
-                  <div class="head"><span>渠道健康</span><span class="ico">📡</span></div>
-                  <div class="big" id="stat-channels">0 <em>个渠道</em></div>
-                  <div class="chips" id="stat-channels-chips"></div>
-                </article>
-                <article class="panel stat">
-                  <div class="head"><span>最近评测结论</span><span class="ico">🎯</span></div>
-                  <div class="big" id="stat-verdicts">0 <em>份报告</em></div>
-                  <div class="chips" id="stat-verdicts-chips"></div>
-                </article>
-                <article class="panel stat">
-                  <div class="head"><span>待办</span><span class="ico">⏳</span></div>
-                  <div class="big" id="stat-todos">0 <em>项</em></div>
-                  <div class="chips" id="stat-todos-chips"></div>
-                </article>
-              </section>
+              <article class="panel stat health">
+                <div class="head"><span>渠道健康</span><span class="ico">📡</span></div>
+                <div class="big" id="stat-channels">0 <em>个渠道</em></div>
+                <div class="bars" id="stat-channels-bars"></div>
+                <div class="chips" id="stat-channels-chips"></div>
+              </article>
+              <article class="panel stat">
+                <div class="head"><span>最近评测结论</span><span class="ico">🎯</span></div>
+                <div class="big" id="stat-verdicts">0 <em>份报告</em></div>
+                <div class="chips" id="stat-verdicts-chips"></div>
+              </article>
+              <article class="panel stat">
+                <div class="head"><span>待办</span><span class="ico">⏳</span></div>
+                <div class="big" id="stat-todos">0 <em>项</em></div>
+                <div class="chips" id="stat-todos-chips"></div>
+              </article>
 
               <section class="panel recent">
                 <div class="sec-head"><h3>最近报告</h3><a data-go-page="reports">全部报告 →</a></div>

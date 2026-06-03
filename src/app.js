@@ -167,6 +167,7 @@ const dashboardEmpty = requireElement("#dashboard-empty");
 const dashboardPopulated = requireElement("#dashboard-populated");
 const statChannels = requireElement("#stat-channels");
 const statChannelsChips = requireElement("#stat-channels-chips");
+const statChannelsBars = requireElement("#stat-channels-bars");
 const statVerdicts = requireElement("#stat-verdicts");
 const statVerdictsChips = requireElement("#stat-verdicts-chips");
 const statTodos = requireElement("#stat-todos");
@@ -927,6 +928,15 @@ function renderDashboardStatus() {
     else bad += 1;
   }
   statChannels.innerHTML = `${targets.length} <em>个渠道</em>`;
+  // 健康占比条：按 正常/观察/异常/未测 的数量做 flex 比例
+  statChannelsBars.innerHTML = targets.length === 0
+    ? `<i style="flex:1;background:var(--line)"></i>`
+    : [
+        good ? `<i style="flex:${good};background:var(--good)"></i>` : "",
+        warn ? `<i style="flex:${warn};background:var(--accent)"></i>` : "",
+        bad ? `<i style="flex:${bad};background:var(--bad)"></i>` : "",
+        idle ? `<i style="flex:${idle};background:var(--muted)"></i>` : "",
+      ].filter(Boolean).join("");
   statChannelsChips.innerHTML = targets.length === 0
     ? `<span class="chip muted-chip"><i style="background:var(--muted)"></i>暂无被测渠道</span>`
     : [
