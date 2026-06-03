@@ -1831,14 +1831,23 @@ button.help-toggle:hover { color: var(--accent); }
   --soft: rgba(255, 255, 255, 0.045);
   --brand: linear-gradient(120deg, #f6b56b 0%, #ff7a8a 100%);
   --brand-soft: linear-gradient(120deg, rgba(246,181,107,.16), rgba(255,122,138,.16));
+  --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", system-ui, sans-serif;
+  --mono: "SF Mono", ui-monospace, "JetBrains Mono", monospace;
 }
 body {
+  /* 字体与 demo 对齐：系统字(SF/苹方) + 抗锯齿，避免 WKWebView 里偏粗发糊 */
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   background:
     radial-gradient(900px 520px at 88% -6%, rgba(255,122,138,.10), transparent 60%),
     radial-gradient(820px 480px at 4% 8%, rgba(246,181,107,.09), transparent 55%),
     radial-gradient(700px 600px at 60% 108%, rgba(109,180,255,.07), transparent 60%),
     var(--bg);
 }
+/* 表单控件继承系统字（旧 reset 里可能指定了别的）*/
+input, select, textarea, button { font-family: var(--sans); }
 /* 卡片 */
 .panel { background: linear-gradient(180deg, rgba(255,255,255,.025), transparent), var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: none; }
 .dash .panel, .cfg .panel { box-shadow: none; }
