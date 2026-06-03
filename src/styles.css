@@ -1720,3 +1720,26 @@ button.secondary:hover:not(:disabled) { border-color: var(--accent); color: var(
 .cfg-tips .tip b { font-size: 13px; }
 .cfg-tips .tip span { color: var(--muted); font-size: 12px; line-height: 1.55; }
 @media (max-width: 1080px) { .cfg-grid { grid-template-columns: 1fr; } }
+
+/* ===== API 配置页排版精修（scope .cfg，纯观感）===== */
+.cfg-topbar h2 { font-size: 21px; font-weight: 650; letter-spacing: .3px; margin: 4px 0 6px; }
+.cfg-topbar .section-desc { color: var(--muted); font-size: 12.5px; line-height: 1.6; }
+/* 必填区单列、加大行距；高级设置内部仍走 2 列 */
+.cfg #profile-form { grid-template-columns: 1fr; gap: 18px; padding: 24px 26px; }
+.cfg .form-section-title { margin-bottom: 0; }
+.cfg .form-section-title h3 { font-size: 16px; font-weight: 650; margin: 6px 0 4px; }
+.cfg .form-section-title .section-desc { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+/* label 提亮分层、与输入留白；hint 加行距降密度 */
+.cfg #profile-form > label { color: #ccd6e4; font-size: 13px; gap: 8px; }
+.cfg #profile-form .field-hint { font-size: 11.5px; line-height: 1.65; color: #7d8aa0; }
+.cfg #profile-form > label > input,
+.cfg #profile-form > label > select { padding: 12px 14px; }
+/* 高级设置：标题克制、内部双列保持紧凑 */
+.cfg .advanced-settings { margin-top: 2px; }
+.cfg .advanced-settings summary { font-size: 13px; font-weight: 600; }
+.cfg .advanced-settings-body { gap: 16px 18px; }
+.cfg .check-panel { font-size: 12.5px; }
+.cfg .split-actions { gap: 12px; margin-top: 4px; }
+/* 右侧贴士卡：标题与正文层级 */
+.cfg-tips h4 { margin-bottom: 2px; }
+.cfg-tips .tip b { color: var(--text); }
