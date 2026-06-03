@@ -1,7 +1,7 @@
 import os from "node:os";
 import { basename } from "node:path";
 
-export function buildSupportBundle({ profiles, requests, testRuns, tasks, errors }) {
+export function buildSupportBundle({ profiles, requests, testRuns, tasks, errors, storage = null }) {
   return {
     bundleVersion: 1,
     exportedAt: new Date().toISOString(),
@@ -11,6 +11,8 @@ export function buildSupportBundle({ profiles, requests, testRuns, tasks, errors
       node: process.version,
       release: os.release(),
     },
+    // 数据层健康：SQLite 是否可用、写失败计数（>0 表示 SQLite 与 JSONL 可能已偏离）。
+    storage: storage || { sqliteAvailable: null },
     summary: {
       profileCount: profiles.length,
       recentRequestCount: requests.length,

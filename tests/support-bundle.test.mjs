@@ -41,3 +41,20 @@ test("support bundle exports useful diagnostics without API keys", () => {
   assert.doesNotMatch(raw, /secret raw detail/);
   assert.doesNotMatch(raw, /\/Users\/demo\/private/);
 });
+
+test("support bundle surfaces storage health for diagnosing SQLite/JSONL drift", () => {
+  const bundle = buildSupportBundle({
+    profiles: [],
+    requests: [],
+    testRuns: [],
+    tasks: [],
+    errors: [],
+    storage: { sqliteAvailable: true, requestWriteFailures: 3, runWriteFailures: 0, lastError: "recordRequest: disk full" },
+  });
+  assert.equal(bundle.storage.sqliteAvailable, true);
+  assert.equal(bundle.storage.requestWriteFailures, 3);
+  assert.equal(bundle.storage.lastError, "recordRequest: disk full");
+  // 缺省时不报错，给出可识别占位
+  const noStorage = buildSupportBundle({ profiles: [], requests: [], testRuns: [], tasks: [], errors: [] });
+  assert.equal(noStorage.storage.sqliteAvailable, null);
+});

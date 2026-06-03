@@ -8,6 +8,7 @@ import {
   closeDatabase,
   countRequests,
   getDatabase,
+  getDbHealth,
   importRequestsFromJsonl,
   isSqliteAvailable,
   queryRecentRequests,
@@ -17,6 +18,15 @@ import {
   recordRequest,
   recordTestRun,
 } from "../server/db.mjs";
+
+test("getDbHealth reports a diagnosable snapshot", async () => {
+  await isSqliteAvailable(); // 触发模块探测
+  const health = getDbHealth();
+  assert.equal(typeof health.sqliteAvailable, "boolean");
+  assert.equal(typeof health.requestWriteFailures, "number");
+  assert.equal(typeof health.runWriteFailures, "number");
+  assert.ok("lastError" in health);
+});
 
 const makeRecord = (overrides = {}) => ({
   requestId: "req-1",

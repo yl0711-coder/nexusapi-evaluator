@@ -80,6 +80,34 @@ let DatabaseSync = null;
 let moduleAvailable = null; // null=未探测, true/false=已探测
 const openConnections = new Map(); // path -> DatabaseSync 实例（按路径缓存）
 
+// 写入可观测性：best-effort 降级会吞异常，但必须可诊断，否则 SQLite 持续写失败
+// 时无人知晓，直到读路径暴露数据缺失。计数 + 首次 warn（不刷屏），并入 support-bundle。
+const dbHealth = {
+  requestWriteFailures: 0,
+  runWriteFailures: 0,
+  lastError: null,
+  warned: false,
+};
+
+function noteDbError(scope, error) {
+  dbHealth.lastError = `${scope}: ${error?.message ? String(error.message) : String(error)}`;
+  if (!dbHealth.warned) {
+    dbHealth.warned = true;
+    console.warn(`[db] SQLite 写入失败，已降级到 JSONL（后续失败仅计数不再刷屏）：${dbHealth.lastError}`);
+  }
+}
+
+// 数据层健康快照（供 support-bundle / 诊断用）。事实源约定：SQLite 可用时为主
+// （全量、不截断），JSONL 为兼容镜像/兜底；写失败计数 > 0 表示两者可能已偏离。
+export function getDbHealth() {
+  return {
+    sqliteAvailable: moduleAvailable === true,
+    requestWriteFailures: dbHealth.requestWriteFailures,
+    runWriteFailures: dbHealth.runWriteFailures,
+    lastError: dbHealth.lastError,
+  };
+}
+
 async function ensureModule() {
   if (moduleAvailable !== null) return moduleAvailable;
   try {
@@ -173,7 +201,9 @@ export async function recordRequest(record, { path } = {}) {
       nowIso(record),
     );
     return true;
-  } catch {
+  } catch (error) {
+    dbHealth.requestWriteFailures += 1;
+    noteDbError("recordRequest", error);
     return false;
   }
 }
@@ -209,7 +239,9 @@ export async function recordTestRun(summary, { type = "", path } = {}) {
       summary.endedAt ?? summary.startedAt ?? null,
     );
     return true;
-  } catch {
+  } catch (error) {
+    dbHealth.runWriteFailures += 1;
+    noteDbError("recordTestRun", error);
     return false;
   }
 }

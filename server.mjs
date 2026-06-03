@@ -29,6 +29,7 @@ import {
 import { deleteProfileApiKey, saveProfileApiKey } from "./server/secret-store.mjs";
 import { createTaskManager } from "./server/task-manager.mjs";
 import { buildSupportBundle } from "./server/support-bundle.mjs";
+import { getDbHealth } from "./server/db.mjs";
 import {
   normalizeProfileIds,
   normalizeScenarioIds,
@@ -520,7 +521,8 @@ async function handleApi(req, res) {
     const testRuns = await readRecentTestRuns();
     const tasks = await readRecentTasks(taskManager.tasks, taskManager.publicTask);
     const errors = await readRecentErrors();
-    sendJson(res, 200, buildSupportBundle({ profiles, requests, testRuns, tasks, errors }));
+    const storage = getDbHealth();
+    sendJson(res, 200, buildSupportBundle({ profiles, requests, testRuns, tasks, errors, storage }));
     return;
   }
 
