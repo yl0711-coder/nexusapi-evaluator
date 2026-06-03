@@ -1692,3 +1692,19 @@ button.danger {
 .dash .workflow-step .name { display: inline; width: auto; height: auto; border-radius: 0; background: none; color: var(--muted); font-weight: 400; place-items: initial; }
 .dash .workflow-step.done .name { color: var(--text); }
 .dash .workflow-step.current .name { color: var(--text); font-weight: 600; }
+
+/* ===== v2 全局视觉打磨：控制室质感（纯观感，不动 markup/ID/handler）===== */
+/* 面板：收紧圆角 + 减轻阴影（去臃肿，.dash 首页已单独覆盖不受影响）*/
+.panel { border-radius: 16px; box-shadow: 0 12px 34px rgba(0, 0, 0, 0.2); }
+/* 输入：收紧圆角 + 聚焦琥珀辉光 */
+input, select, textarea { border-radius: 10px; background: var(--panel-strong); padding: 11px 13px; transition: border-color .15s, box-shadow .15s; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(246, 181, 107, 0.14); }
+/* 按钮：收紧圆角 + 主按钮渐变与悬浮抬升 */
+button.primary, button.secondary { border-radius: 10px; padding: 12px 18px; transition: transform .12s, box-shadow .12s, border-color .15s, color .15s; }
+button.primary { background: linear-gradient(145deg, var(--accent), #e89b4d); box-shadow: 0 8px 22px rgba(246, 181, 107, 0.26); }
+button.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(246, 181, 107, 0.4); }
+button.secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+/* 子面板：统一收紧圆角，减少视觉噪声 */
+.advanced-settings, .helper-details, .technical-details, .checkbox-option, .empty-state, .guide-card, .collapsible-panel { border-radius: 14px; }
+/* 段落标题：微调字距 */
+.section-header h2 { letter-spacing: .3px; }
