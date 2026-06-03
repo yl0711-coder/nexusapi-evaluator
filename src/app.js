@@ -1385,10 +1385,6 @@ function formatEstimateForAdmissionBatch() {
   return confirmExecution("估算", estimateAdmissionBatchCost(payload)).message;
 }
 
-function formatEstimateForForm(form, estimateCost) {
-  return confirmExecution("估算", estimateCost(Object.fromEntries(new FormData(form).entries()))).message;
-}
-
 function findProfileModelName(profileId) {
   return state.profiles.find((profile) => profile.id === profileId)?.defaultModel || "";
 }

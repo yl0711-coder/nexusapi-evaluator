@@ -1,5 +1,5 @@
 import { average, escapeHtml, formatDateTime, formatPercent } from "./client-utils.js";
-import { formatTaskType, recommendationClass } from "./formatters.js";
+import { formatCost, formatTaskType, recommendationClass } from "./formatters.js";
 
 // Presentation-only helpers for report insights and handoff text. Keep API
 // calls and DOM event binding in app.js so these functions remain easy to test.
@@ -643,13 +643,6 @@ function formatBaselineDelta(row) {
   return `相对可信基线 ${row.baselineProfileName}：${prefix}${row.baselineDelta} 分`;
 }
 
-function formatCost(value) {
-  if (!Number.isFinite(Number(value))) return "-";
-  const number = Number(value);
-  if (number === 0) return "0";
-  if (number < 0.01) return number.toFixed(4);
-  return number.toFixed(2);
-}
 
 function formatMargin(value) {
   if (!Number.isFinite(Number(value))) return "-";

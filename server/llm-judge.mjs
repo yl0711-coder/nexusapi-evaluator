@@ -16,6 +16,7 @@
 //     同家族规避；长度归一/盲测属 prompt 层，后续 rubric 实现）。
 
 import { inferModelFamily } from "./model-fingerprint.mjs";
+import { mulberry32 } from "./utils.mjs";
 
 export const JUDGE_CONSISTENCY_THRESHOLD = 0.8;
 
@@ -95,17 +96,6 @@ export function judgeConsistency(units, { level = "interval", threshold = JUDGE_
 // ---------------------------------------------------------------------------
 // 偏见缓解：答案位置随机化（确定性，可复现）
 // ---------------------------------------------------------------------------
-
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function next() {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 // 把候选答案随机排位后交给裁判（消除位置偏好），并返回还原映射。
 // 确定性（同 seed 同结果），便于复现与回溯。

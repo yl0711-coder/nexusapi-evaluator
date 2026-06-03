@@ -182,7 +182,7 @@ export function formatAdmissionResult(result) {
   return lines.join("\n");
 }
 
-function formatCost(value) {
+export function formatCost(value) {
   if (!Number.isFinite(Number(value))) return "-";
   const number = Number(value);
   if (number === 0) return "0";
