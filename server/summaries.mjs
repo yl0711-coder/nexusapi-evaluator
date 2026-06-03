@@ -144,7 +144,23 @@ export function buildScenarioProfileSummary(profile, records, { judgeAudit = nul
     scenarios,
     // LLM 裁判审计结论（审计模式，仅记录，不参与 recommendation）。null=未启用/无裁判。
     judgeAudit,
+    // 本次评测的实际消耗（跑后记录）：目标渠道 + 裁判调用合计。
+    actualConsumption: buildActualConsumption(
+      { inputTokens, outputTokens, cost: economics.estimatedCost },
+      judgeAudit?.judgeConsumption || null,
+    ),
     records,
+  };
+}
+
+// 合并目标渠道与裁判调用的真实消耗。cost 为 null（未填单价）时不计入合计，
+// totalCost 仅在至少一侧有金额时给数，否则 null（区分“0”与“未知”）。
+function buildActualConsumption(target, judge) {
+  const costs = [target?.cost, judge?.cost].filter((c) => typeof c === "number" && Number.isFinite(c));
+  return {
+    target: { inputTokens: target?.inputTokens ?? null, outputTokens: target?.outputTokens ?? null, cost: target?.cost ?? null },
+    judge: judge ? { calls: judge.calls, inputTokens: judge.inputTokens, outputTokens: judge.outputTokens, cost: judge.cost ?? null } : null,
+    totalCost: costs.length ? Math.round(costs.reduce((a, b) => a + Number(b), 0) * 1_000_000) / 1_000_000 : null,
   };
 }
 

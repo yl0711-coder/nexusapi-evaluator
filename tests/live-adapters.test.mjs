@@ -153,6 +153,32 @@ test("runLiveJudgeAudit runs in audit mode within budget (mocked)", async () => 
   assert.match(out.note, /丢弃 15 题/);
 });
 
+test("runLiveJudgeAudit aggregates judge call consumption (tokens + cost by judge price)", async () => {
+  const judges = [
+    { id: "j1", defaultModel: "gpt-4.1", inputPricePerMTokens: 2, outputPricePerMTokens: 8 },
+    { id: "j2", defaultModel: "gemini-1.5-pro", inputPricePerMTokens: 1, outputPricePerMTokens: 4 },
+  ];
+  const { run } = makeMockRunner(() => ({
+    success: true,
+    responseText: "评分：80",
+    inputTokens: 1_000_000, // 便于核对成本
+    outputTokens: 500_000,
+  }));
+  const out = await runLiveJudgeAudit({
+    targetModel: "claude-sonnet-4-5",
+    items: [{ question: "Q1", answer: "A1" }, { question: "Q2", answer: "A2" }],
+    judgeProfiles: judges,
+    maxCalls: 50,
+    runRequest: run,
+  });
+  // 2 题 × 2 裁判 = 4 次；输入 4M、输出 2M
+  assert.equal(out.judgeConsumption.calls, 4);
+  assert.equal(out.judgeConsumption.inputTokens, 4_000_000);
+  assert.equal(out.judgeConsumption.outputTokens, 2_000_000);
+  // 每裁判跑 2 次：j1 = 2*(1*2 + 0.5*8)=2*6=12; j2 = 2*(1*1 + 0.5*4)=2*3=6 → 18
+  assert.equal(out.judgeConsumption.cost, 18);
+});
+
 test("runLiveJudgeAudit refuses when no eligible judge (same family) — zero calls", async () => {
   const judges = [{ id: "j1", defaultModel: "claude-sonnet-4-5" }];
   const { run, calls } = makeMockRunner(() => ({ success: true, responseText: "评分：90" }));

@@ -17,6 +17,7 @@
 
 import { assessJudgePanel } from "./judge-orchestration.mjs";
 import { selectEligibleJudges } from "./llm-judge.mjs";
+import { estimateProfileRunCost, roundCost } from "./costing.mjs";
 
 // runRequest 一律依赖注入：真实跑由 test-runner 传 executeTestRequest，测试传 mock。
 // 不在此 import executeTestRequest —— 避免与 test-runner 形成循环依赖，也确保本模块
@@ -36,7 +37,7 @@ export function isLiveRutEnabled() {
 // 裁判调用器：judges 传裁判 profile 列表；callJudge 收到的是“裁判模型名”
 // （编排层用模型名做同家族规避），按模型名映射回 profile 再发请求。
 // runRequest 由上层注入（真实跑传 executeTestRequest，测试传 mock）。
-export function createJudgeCaller(judgeProfiles = [], { runRequest = defaultRunRequest, runId = "llm-judge", abortSignal = null } = {}) {
+export function createJudgeCaller(judgeProfiles = [], { runRequest = defaultRunRequest, runId = "llm-judge", abortSignal = null, onJudgeRecord = null } = {}) {
   const byModel = new Map();
   for (const profile of judgeProfiles) {
     if (profile?.defaultModel && !byModel.has(profile.defaultModel)) {
@@ -52,7 +53,34 @@ export function createJudgeCaller(judgeProfiles = [], { runRequest = defaultRunR
       writeLog: true,
       abortSignal,
     });
+    // 旁路上报裁判调用的真实 usage（编排层契约仍只收文本），供上层统计裁判成本。
+    if (typeof onJudgeRecord === "function") onJudgeRecord(profile, record);
     return record?.success ? record.responseText || "" : "";
+  };
+}
+
+// 汇总一批裁判调用的真实消耗（按各裁判 profile 单价计 cost）。
+function aggregateJudgeConsumption(entries) {
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let cost = 0;
+  let hasCost = false;
+  for (const { profile, record } of entries) {
+    const inTok = Number(record?.inputTokens) || 0;
+    const outTok = Number(record?.outputTokens) || 0;
+    inputTokens += inTok;
+    outputTokens += outTok;
+    const c = estimateProfileRunCost(profile, { inputTokens: inTok, outputTokens: outTok });
+    if (c !== null) {
+      cost += c;
+      hasCost = true;
+    }
+  }
+  return {
+    calls: entries.length,
+    inputTokens,
+    outputTokens,
+    cost: hasCost ? roundCost(cost) : null, // 没填裁判单价 → null（区分"0"与"未知"）
   };
 }
 
@@ -123,7 +151,13 @@ export async function runLiveJudgeAudit({
     };
   }
   const used = items.slice(0, plan.itemsToJudge);
-  const callJudge = createJudgeCaller(judgeProfiles, { runRequest, runId, abortSignal });
+  const judgeRecords = [];
+  const callJudge = createJudgeCaller(judgeProfiles, {
+    runRequest,
+    runId,
+    abortSignal,
+    onJudgeRecord: (profile, record) => judgeRecords.push({ profile, record }),
+  });
   const panel = await assessJudgePanel({ items: used, judges: judgeModels, targetModel, scale, callJudge });
   return {
     mode: "audit", // 仅记录，不改变任何对外结论
@@ -133,6 +167,8 @@ export async function runLiveJudgeAudit({
     droppedForBudget: plan.dropped,
     maxCalls,
     callsUsed: plan.callsPlanned, // 每题对每个可用裁判恰好发 1 次
+    // 裁判调用的真实消耗（并入本次评测"实际消耗"用）
+    judgeConsumption: aggregateJudgeConsumption(judgeRecords),
     excluded,
     ...panel,
     note:
