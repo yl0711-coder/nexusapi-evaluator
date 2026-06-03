@@ -1857,3 +1857,7 @@ input, select, textarea { background: var(--panel-strong); border: 1px solid var
 input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(246,181,107,.13); }
 /* 首页 stat 大数字与彩条延续 */
 .dash .stat .big, .dash .chip { font-family: var(--mono, ui-monospace, monospace); }
+
+/* MODERN SKIN ②：一行式页头（琥珀 step + 白标题同号）*/
+.section-header h2, .cfg-topbar h2 { font-size: 26px; font-weight: 720; letter-spacing: -.4px; line-height: 1.12; }
+.section-header h2 .step, .cfg-topbar h2 .step { background: var(--brand); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-right: 16px; }
