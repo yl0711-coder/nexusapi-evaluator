@@ -190,9 +190,8 @@
             </form>
             <div id="admission-batch-estimate" class="estimate-box">选择 API 后会显示大概会消耗多少额度。</div>
             <div id="admission-batch-progress" class="progress-panel hidden">
-              <span>任务进度</span>
-              <progress max="100" value="0"></progress>
-              <small>等待任务开始。</small>
+              <div class="progress-bar"><span></span></div>
+              <p class="muted">等待任务开始。</p>
               <button id="cancel-admission-batch-task" class="secondary" type="button">取消当前任务</button>
             </div>
             <pre id="admission-batch-result" class="result-box report-box">批量准入完成后会生成汇总报告，并进入报告中心排行榜。</pre>

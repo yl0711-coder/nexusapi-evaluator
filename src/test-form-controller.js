@@ -16,27 +16,32 @@ export function createTaskFormController({
   failurePrefix,
   idleButtonText,
 }) {
+  let running = false;
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    // 重入守卫：确认框 await 期间按钮尚未禁用，双击/回车会产生抢同一 slot 的并发任务，
+    // 前一个会变成无法取消的孤儿任务继续消耗额度。进入即锁。
+    if (running) return;
     const payload = preparePayload(Object.fromEntries(new FormData(form).entries()));
     if (!payload) {
       return;
     }
-    if (confirmRun) {
-      const confirmed = await confirmRun(payload);
-      if (!confirmed) return;
-    }
-
+    running = true;
     submitButton.disabled = true;
-    submitButton.textContent = "任务运行中...";
-    beforeStart?.(payload);
 
     try {
+      if (confirmRun) {
+        const confirmed = await confirmRun(payload);
+        if (!confirmed) return; // finally 会解锁
+      }
+      submitButton.textContent = "任务运行中...";
+      beforeStart?.(payload);
       const result = await runRemoteTask(state, slot, taskType, payload, progressElement);
       await onSuccess(result, payload);
     } catch (error) {
       resultElement.innerHTML = `<p class="fail">${escapeHtml(failurePrefix)}：${escapeHtml(error.message)}</p>`;
     } finally {
+      running = false;
       submitButton.disabled = false;
       submitButton.textContent = idleButtonText;
     }

@@ -259,6 +259,7 @@ requireElement("#export-profiles").addEventListener("click", exportProfiles);
 requireElement("#export-support-bundle").addEventListener("click", exportSupportBundle);
 requireElement("#save-profile-only").addEventListener("click", saveProfileOnly);
 requireElement("#import-profiles-button").addEventListener("click", () => {
+  if (assertNotDemo("导入配置")) return;
   requireElement("#import-profiles-file").click();
 });
 requireElement("#import-profiles-file").addEventListener("change", profileController.importProfiles);
@@ -728,8 +729,30 @@ async function replayClientRequestsFromLogs() {
   }
 }
 
-await Promise.all([loadHealth(), loadProfiles(), loadScenarios(), loadRequests(), loadTestRuns(), loadTaskEvents()]);
-renderPageHelp("dashboard");
+try {
+  await Promise.all([loadHealth(), loadProfiles(), loadScenarios(), loadRequests(), loadTestRuns(), loadTaskEvents()]);
+  renderPageHelp("dashboard");
+} catch (error) {
+  // 首屏任一加载失败（后端慢启动/异常）会让顶层 await 抛出、整页白屏。
+  // 给非技术用户一个可读的兜底，而不是空白。
+  renderStartupError(error);
+}
+
+function renderStartupError(error) {
+  const main = document.querySelector(".main");
+  if (!main) return;
+  const box = document.createElement("section");
+  box.className = "panel startup-error";
+  const title = document.createElement("strong");
+  title.textContent = "连接本地服务失败";
+  const tip = document.createElement("p");
+  tip.textContent = "请完全退出本工具后重新打开一次。如果反复出现，把这条提示发给负责人。";
+  const detail = document.createElement("p");
+  detail.className = "muted";
+  detail.textContent = error?.message ? String(error.message) : String(error);
+  box.append(title, tip, detail);
+  main.prepend(box);
+}
 
 function showPage(page) {
   navButtons.forEach((item) => item.classList.toggle("active", item.dataset.page === page));
@@ -858,6 +881,17 @@ async function disableDemoMode() {
   await Promise.all([loadProfiles(), loadRequests(), loadTestRuns(), loadTaskEvents()]);
   showPage("dashboard");
   toast("已退出演示模式，恢复本机真实数据。");
+}
+
+// 演示模式下统一拦截所有写操作（删除/导出/导入/改 Key 等）。
+// demo 数据 id 是假的，放行会打到后端，假 id 碰撞真实配置时可能误删，违背“不写本机”承诺。
+// 被拦截返回 true（调用方据此 return）。
+function assertNotDemo(actionLabel = "这个操作") {
+  if (state.demoMode) {
+    toast(`演示模式不能${actionLabel}。请退出演示模式后再操作。`, true);
+    return true;
+  }
+  return false;
 }
 
 function renderDashboard() {
@@ -1039,6 +1073,7 @@ function renderProfiles() {
       profileForm.elements.name.focus();
     },
     onDeleteProfile: async (profileId) => {
+      if (assertNotDemo("删除配置")) return;
       const confirmed = await confirmAction({
         title: "删除这个 API 配置？",
         message: "删除后，这个配置不会再出现在测试列表里。",
@@ -1068,10 +1103,7 @@ function renderMissingKeyGuide() {
 }
 
 async function updateProfileKey(profileId) {
-  if (state.demoMode) {
-    toast("演示模式不能保存 Key。请退出演示模式后再操作。", true);
-    return;
-  }
+  if (assertNotDemo("保存 Key")) return;
   const apiKey = await keyPrompt.requestApiKey();
   if (!apiKey) {
     return;
@@ -1325,6 +1357,7 @@ function findProfileModelName(profileId) {
 }
 
 async function exportProfiles() {
+  if (assertNotDemo("导出配置")) return;
   const data = await api("/api/profiles/export");
   downloadText(`nexusapi-profiles-${Date.now()}.json`, JSON.stringify(data, null, 2));
   toast("配置已导出，导出文件不包含 API Key。");
