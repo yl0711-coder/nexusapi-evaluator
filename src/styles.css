@@ -1782,3 +1782,22 @@ button.primary, button.secondary { font-weight: 600; padding: 10px 16px; font-si
 .demo-banner button { padding: 7px 13px; font-size: 12.5px; font-weight: 500; }
 /* compact 区块头里的次按钮 → 小 */
 .section-header.compact > button, .section-header.compact .action-row > button { padding: 7px 13px; font-size: 12.5px; font-weight: 500; }
+
+/* ===== 系统性精修：颜色归语义、装饰归中性、表单排版全站统一 ===== */
+/* 1) 装饰性蓝 tint 全部中性化（颜色只留给状态/语义）*/
+.helper-details, .technical-details, .advanced-settings, .collapsible-panel,
+.guide-card, .advanced-note, .page-help-content, .estimate-box {
+  border-color: var(--line) !important;
+  background: rgba(8, 17, 31, 0.42) !important;
+}
+.helper-details[open] summary, .technical-details[open] summary,
+.collapsible-panel[open] summary, .advanced-settings-body { border-color: var(--line) !important; }
+.guide-card span { color: var(--muted); }
+/* 2) 表单排版全站统一（之前只给了 .cfg）*/
+.form-section-title h3 { font-size: 16px; font-weight: 650; margin: 6px 0 4px; }
+.form-grid { gap: 16px; }
+label { color: #ccd6e4; }
+.field-hint { line-height: 1.65; }
+/* 3) "这个页面怎么用?" 由按钮改为克制文字链接 */
+button.help-toggle { background: transparent; border: 0; color: var(--muted); padding: 2px 0; font-weight: 500; }
+button.help-toggle:hover { color: var(--accent); }
