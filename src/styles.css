@@ -1708,3 +1708,15 @@ button.secondary:hover:not(:disabled) { border-color: var(--accent); color: var(
 .advanced-settings, .helper-details, .technical-details, .checkbox-option, .empty-state, .guide-card, .collapsible-panel { border-radius: 14px; }
 /* 段落标题：微调字距 */
 .section-header h2 { letter-spacing: .3px; }
+
+/* ===== API 配置页 v2：topbar + 两栏（表单 / 右侧贴士）===== */
+.cfg { max-width: 1180px; display: flex; flex-direction: column; gap: 22px; }
+.cfg-topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.cfg-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 22px; align-items: start; }
+.cfg-grid #profile-form { margin: 0; }
+.cfg-tips { padding: 22px; display: flex; flex-direction: column; gap: 16px; height: fit-content; }
+.cfg-tips h4 { font-size: 13px; color: var(--accent); letter-spacing: 1px; text-transform: uppercase; margin: 0; }
+.cfg-tips .tip { display: flex; flex-direction: column; gap: 3px; }
+.cfg-tips .tip b { font-size: 13px; }
+.cfg-tips .tip span { color: var(--muted); font-size: 12px; line-height: 1.55; }
+@media (max-width: 1080px) { .cfg-grid { grid-template-columns: 1fr; } }
