@@ -806,12 +806,14 @@ async function loadTestRuns() {
   if (state.demoMode) {
     renderTestRuns();
     renderDashboard();
+    renderProfiles();
     renderDeliveryViews();
     return;
   }
   state.testRuns = await api("/api/test-runs/recent");
   renderTestRuns();
   renderDashboard();
+  renderProfiles();
   renderDeliveryViews();
 }
 
@@ -1003,11 +1005,25 @@ function renderWorkflowGuide() {
   });
 }
 
+// 每个渠道的最近一次测试结论（profileId → {cls,label}），供配置页健康行用。
+// 与首页"渠道健康"卡同源（state.testRuns 按 profile 取最近 verdict）。
+function latestVerdictsByProfile() {
+  const map = {};
+  for (const run of state.testRuns || []) {
+    const id = run.profileId;
+    if (!id || map[id]) continue;
+    const v = dashVerdict(run);
+    if (v) map[id] = v;
+  }
+  return map;
+}
+
 function renderProfiles() {
   renderMissingKeyGuide();
   renderProfileList({
     profiles: state.profiles,
     list: profileList,
+    verdicts: latestVerdictsByProfile(),
     onFocusForm: () => {
       profileForm.scrollIntoView({ behavior: "smooth", block: "start" });
       profileForm.elements.name.focus();

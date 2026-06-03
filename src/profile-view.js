@@ -1,6 +1,6 @@
 import { escapeHtml } from "./client-utils.js";
 
-export function renderProfileList({ profiles, list, onFocusForm, onDeleteProfile, onUpdateKey }) {
+export function renderProfileList({ profiles, list, verdicts = {}, onFocusForm, onDeleteProfile, onUpdateKey }) {
   if (profiles.length === 0) {
     list.innerHTML = `
       <div class="empty-state">
@@ -14,25 +14,28 @@ export function renderProfileList({ profiles, list, onFocusForm, onDeleteProfile
   }
 
   list.innerHTML = profiles
-    .map(
-      (profile) => `
-        <div class="row">
-          <div>
-            <strong>${escapeHtml(profile.name)}</strong><br />
-            <small>${escapeHtml(profile.provider)}</small>
+    .map((profile) => {
+      const verdict = verdicts[profile.id] || null; // { cls: good|warn|bad, label } | null
+      const health = verdict ? verdict.cls : "idle";
+      const pill = verdict
+        ? `<span class="chan-pill ${verdict.cls}">已测 · ${escapeHtml(verdict.label)}</span>`
+        : `<span class="chan-pill idle">未测</span>`;
+      return `
+        <div class="chan-row">
+          <span class="chan-health ${health}" title="${verdict ? escapeHtml(verdict.label) : "未测"}"></span>
+          <div class="chan-who">
+            <b>${escapeHtml(profile.name)} <span class="chan-role ${roleClass(profile.role)}">${roleLabel(profile.role)}</span></b>
+            <small>${escapeHtml(profile.defaultModel)} · ${escapeHtml(protocolLabel(profile.protocol))}</small>
           </div>
-          <span class="tag">${roleLabel(profile.role)}</span>
-          <span>${escapeHtml(profile.protocol)}</span>
-          <span>${escapeHtml(profile.defaultModel)}</span>
-          <span>${escapeHtml(formatProfilePrice(profile))}</span>
-          <span>${escapeHtml(profile.apiKey)}</span>
+          <div class="chan-meta">${escapeHtml(formatProfilePrice(profile))}</div>
+          ${pill}
           <div class="row-actions">
             <button class="secondary" data-update-key="${profile.id}">更新 Key</button>
             <button class="secondary" data-delete-profile="${profile.id}">删除</button>
           </div>
         </div>
-      `,
-    )
+      `;
+    })
     .join("");
 
   list.querySelectorAll("[data-delete-profile]").forEach((button) => {
@@ -112,5 +115,17 @@ export function renderProfileSelectOptions({ profiles, selects }) {
 function roleLabel(role) {
   if (role === "judge") return "主 API";
   if (role === "baseline") return "可信基线";
-  return "被测 API";
+  return "被测";
+}
+
+function roleClass(role) {
+  if (role === "judge") return "judge";
+  if (role === "baseline") return "baseline";
+  return "target";
+}
+
+function protocolLabel(protocol) {
+  if (protocol === "claude_messages") return "Claude Messages";
+  if (protocol === "openai_chat") return "OpenAI Chat";
+  return "OpenAI 兼容";
 }
