@@ -1807,3 +1807,53 @@ button.help-toggle:hover { color: var(--accent); }
 .eyebrow { font-size: 12px; letter-spacing: 0.06em; }
 /* 面板/区块内 h3 归一到克制尺寸 */
 .panel > h3, .section-header.compact h3, .section-header.compact h2 { font-size: 15px; font-weight: 650; }
+
+/* ============================================================
+   MODERN SKIN — Aurora Console（按 design-preview/modern.html 落地）
+   皮肤层：末尾追加，覆盖优先。整站观感切到现代风。
+   ============================================================ */
+:root {
+  --bg: #0a0e17;
+  --panel: #141c2e;
+  --panel-strong: #0e1320;
+  --card: #141c2e;
+  --text: #eef2fb;
+  --text-2: #aab4c9;
+  --muted: #6b7791;
+  --line: #232c42;
+  --accent: #f6b56b;
+  --good: #5fe3b0;
+  --bad: #ff7a8a;
+  --blue: #6db4ff;
+  --coral: #ff7a8a;
+  --mint: #5fe3b0;
+  --sky: #6db4ff;
+  --soft: rgba(255, 255, 255, 0.045);
+  --brand: linear-gradient(120deg, #f6b56b 0%, #ff7a8a 100%);
+  --brand-soft: linear-gradient(120deg, rgba(246,181,107,.16), rgba(255,122,138,.16));
+}
+body {
+  background:
+    radial-gradient(900px 520px at 88% -6%, rgba(255,122,138,.10), transparent 60%),
+    radial-gradient(820px 480px at 4% 8%, rgba(246,181,107,.09), transparent 55%),
+    radial-gradient(700px 600px at 60% 108%, rgba(109,180,255,.07), transparent 60%),
+    var(--bg);
+}
+/* 卡片 */
+.panel { background: linear-gradient(180deg, rgba(255,255,255,.025), transparent), var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: none; }
+.dash .panel, .cfg .panel { box-shadow: none; }
+/* 侧边栏 */
+.sidebar { background: linear-gradient(180deg, rgba(20,28,46,.5), rgba(10,14,23,.2)); border-right: 1px solid var(--line); }
+.nav-button { border-radius: 12px; transition: .16s; }
+.nav-button.active, .nav-button:hover { background: var(--brand-soft); border-color: rgba(246,181,107,.28); color: var(--text); }
+.nav-group > span { color: var(--muted); }
+/* 按钮：主操作品牌渐变 */
+button.primary, .btn-primary { background: var(--brand) !important; color: #1a0f08 !important; box-shadow: 0 10px 26px rgba(255,122,138,.26); }
+button.primary:hover:not(:disabled), .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 16px 34px rgba(255,122,138,.4); }
+button.secondary { background: rgba(255,255,255,.04); border: 1px solid var(--line); }
+button.secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+/* 输入框 */
+input, select, textarea { background: var(--panel-strong); border: 1px solid var(--line); border-radius: 12px; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(246,181,107,.13); }
+/* 首页 stat 大数字与彩条延续 */
+.dash .stat .big, .dash .chip { font-family: var(--mono, ui-monospace, monospace); }
