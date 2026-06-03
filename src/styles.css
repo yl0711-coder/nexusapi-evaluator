@@ -1905,3 +1905,27 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .anim > *:nth-child(3) { animation-delay: .15s; }
 .anim > *:nth-child(4) { animation-delay: .21s; }
 .anim > *:nth-child(5) { animation-delay: .27s; }
+
+/* MODERN SKIN ④：高级测试三页放松呼吸感（表单密集、原来太挤）
+   作用域限定 #quick-test / #stability-test / #scenario-test，不影响已定稿页 */
+#quick-test .panel, #stability-test .panel, #scenario-test .panel { padding: 26px 28px; margin-bottom: 24px; }
+/* 说明折叠卡与下方表单留白 */
+#quick-test .helper-details, #stability-test .helper-details, #scenario-test .helper-details { margin-bottom: 24px; }
+/* 页头与首块内容留白 */
+#quick-test .section-header, #stability-test .section-header, #scenario-test .section-header { margin-bottom: 22px; }
+/* 单列表单（如快速连通）：label 之间撑开，按钮回归自然宽度靠左 */
+#quick-test form.panel:not(.form-grid), #stability-test form.panel:not(.form-grid), #scenario-test form.panel:not(.form-grid) { display: grid; gap: 20px; }
+#quick-test form .primary:not(.wide), #stability-test form .primary:not(.wide), #scenario-test form .primary:not(.wide) { justify-self: start; margin-top: 2px; }
+/* 栅格表单：行/列间距加大 */
+#quick-test .form-grid, #stability-test .form-grid, #scenario-test .form-grid { gap: 20px 24px; }
+/* label → 控件间距加大 */
+#quick-test label, #stability-test label, #scenario-test label { gap: 9px; }
+/* 子标题（测试结果/执行前预估/汇总结论等）与内容留白 */
+#quick-test .panel > h3, #stability-test .panel > h3, #scenario-test .panel > h3 { margin: 0 0 14px; }
+/* 嵌套批量表单与其上方标题留白 */
+#stability-test #batch-test-form { margin-top: 20px; }
+#stability-test #batch-estimate { margin-top: 16px; }
+/* 满宽提交按钮上方留白 */
+#quick-test .primary.wide, #stability-test .primary.wide, #scenario-test .primary.wide { margin-top: 6px; }
+/* 结果框更高、内边距更舒展 */
+#quick-test .result-box, #stability-test .result-box, #scenario-test .result-box { padding: 16px 18px; }
