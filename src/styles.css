@@ -1801,3 +1801,9 @@ label { color: #ccd6e4; }
 /* 3) "这个页面怎么用?" 由按钮改为克制文字链接 */
 button.help-toggle { background: transparent; border: 0; color: var(--muted); padding: 2px 0; font-weight: 500; }
 button.help-toggle:hover { color: var(--accent); }
+
+/* ===== 页头排版层级统一：h2 34px→21px（修 eyebrow 太小/h2 太大的刺眼落差）===== */
+.section-header h2 { font-size: 21px; font-weight: 650; letter-spacing: .3px; margin: 5px 0 0; }
+.eyebrow { font-size: 12px; letter-spacing: 0.06em; }
+/* 面板/区块内 h3 归一到克制尺寸 */
+.panel > h3, .section-header.compact h3, .section-header.compact h2 { font-size: 15px; font-weight: 650; }
