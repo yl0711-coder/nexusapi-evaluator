@@ -235,7 +235,7 @@ export async function recordTestRun(summary, { type = "", path } = {}) {
       ci.method || null,
       summary.startedAt ?? null,
       summary.endedAt ?? null,
-      JSON.stringify(summary),
+      JSON.stringify(slimSummaryForStorage(summary)),
       summary.endedAt ?? summary.startedAt ?? null,
     );
     return true;
@@ -305,4 +305,16 @@ function safeParse(raw) {
   } catch {
     return null;
   }
+}
+
+// test_runs.raw_json 只需汇总级字段；场景/批量 summary 里嵌的 records/results/cases/
+// reportMarkdown 可达数 MB，逐请求明细已在 test_requests 表，这里剥掉只留计数，
+// 避免单行膨胀拖慢 queryRecentTestRuns（一次 parse 20 行）。
+function slimSummaryForStorage(summary) {
+  if (!summary || typeof summary !== "object") return summary;
+  const { reportMarkdown, records, results, cases, ...rest } = summary;
+  if (Array.isArray(records)) rest.recordCount = records.length;
+  if (Array.isArray(results)) rest.resultCount = results.length;
+  if (Array.isArray(cases)) rest.caseCount = rest.caseCount ?? cases.length;
+  return rest;
 }

@@ -248,7 +248,7 @@ requireElement("#load-demo-data").addEventListener("click", enableDemoMode);
 requireElement("#exit-demo-mode").addEventListener("click", disableDemoMode);
 requireElement("#reload-profiles").addEventListener("click", loadProfiles);
 requireElement("#reload-requests").addEventListener("click", async () => {
-  await Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]);
+  await loadResultsBundle();
 });
 requireElement("#copy-stability-report").addEventListener("click", () => copyReportText("stability"));
 requireElement("#copy-scenario-report").addEventListener("click", () => copyReportText("scenario"));
@@ -283,12 +283,23 @@ clientLogDirectoryImport.addEventListener("click", importClientLogDirectory);
 clientReplayExtract.addEventListener("click", extractReplayRequestFromLogs);
 clientReplayForm.addEventListener("submit", replayClientRequest);
 clientReplayBatch.addEventListener("click", replayClientRequestsFromLogs);
-stabilityTestForm.addEventListener("input", updateEstimates);
-batchTestForm.addEventListener("input", updateEstimates);
-scenarioTestForm.addEventListener("input", updateEstimates);
-admissionTestForm.addEventListener("input", updateEstimates);
-admissionBatchForm.addEventListener("input", updateEstimates);
-profileForm.addEventListener("input", renderProfileConfigCheck);
+// input 事件每敲一个字符就触发，updateEstimates/renderProfileConfigCheck 会重建
+// 面板 innerHTML（闪烁、低端机输入延迟）。去抖 200ms，只在停止输入后渲染一次。
+function debounce(fn, ms = 200) {
+  let timer = null;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+const updateEstimatesDebounced = debounce(updateEstimates, 200);
+const renderProfileConfigCheckDebounced = debounce(renderProfileConfigCheck, 200);
+stabilityTestForm.addEventListener("input", updateEstimatesDebounced);
+batchTestForm.addEventListener("input", updateEstimatesDebounced);
+scenarioTestForm.addEventListener("input", updateEstimatesDebounced);
+admissionTestForm.addEventListener("input", updateEstimatesDebounced);
+admissionBatchForm.addEventListener("input", updateEstimatesDebounced);
+profileForm.addEventListener("input", renderProfileConfigCheckDebounced);
 admissionProfileSelect.addEventListener("change", updateEstimates);
 admissionBatchProfileSelect.addEventListener("change", updateEstimates);
 stabilityProfileSelect.addEventListener("change", updateEstimates);
@@ -339,7 +350,7 @@ createStandardEvalController({
   state,
   estimateCost: estimateStandardCost,
   confirmRun: (title, estimate) => confirmAction(confirmExecution(title, estimate)),
-  refreshResults: () => Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]),
+  refreshResults: () => loadResultsBundle(),
   showPage,
   quickProfileSelect,
   stabilityProfileSelect,
@@ -369,7 +380,7 @@ admissionTestForm.addEventListener("submit", async (event) => {
       body: JSON.stringify(payload),
     });
     admissionResult.innerHTML = renderAdmissionResult(result);
-    await Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]);
+    await loadResultsBundle();
     toast("准入评测完成。");
   } catch (error) {
     admissionResult.innerHTML = `<p class="fail">准入评测失败：${escapeHtml(error.message)}</p>`;
@@ -399,7 +410,7 @@ createTaskFormController({
   onSuccess: async (result) => {
     const copyableSummary = getCopyableReportText(result, formatBatchAdmissionResult(result));
     admissionBatchResult.textContent = copyableSummary;
-    await Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]);
+    await loadResultsBundle();
     toast("批量准入对比完成。");
   },
   failurePrefix: "批量准入对比失败",
@@ -426,7 +437,7 @@ createTaskFormController({
     state.latestReportCopies.stability = copyableSummary;
     renderStabilitySummary(result);
     stabilityReport.textContent = copyableSummary;
-    await Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]);
+    await loadResultsBundle();
     toast("稳定性测试完成。");
   },
   failurePrefix: "稳定性测试失败",
@@ -452,7 +463,7 @@ createTaskFormController({
   onSuccess: async (result) => {
     const copyableSummary = getCopyableReportText(result, formatBatchResult(result));
     batchTestResult.textContent = copyableSummary;
-    await Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]);
+    await loadResultsBundle();
     toast("批量测试完成。");
   },
   failurePrefix: "批量测试失败",
@@ -482,7 +493,7 @@ createTaskFormController({
     const copyableSummary = getCopyableReportText(result, formatScenarioResult(result));
     state.latestReportCopies.scenario = copyableSummary;
     scenarioTestResult.textContent = copyableSummary;
-    await Promise.all([loadRequests(), loadTestRuns(), loadTaskEvents()]);
+    await loadResultsBundle();
     toast("场景测试完成。");
   },
   failurePrefix: "场景测试失败",
@@ -849,6 +860,32 @@ async function loadTaskEvents() {
   }
   state.taskEvents = await api("/api/tasks/recent");
   renderTaskEvents();
+  renderDeliveryViews();
+}
+
+// 结果三件套一起拉、只渲染一次。原来 Promise.all([loadRequests,loadTestRuns,
+// loadTaskEvents]) 会触发 renderDeliveryViews ×3 / renderDashboard ×2，整页
+// innerHTML 重建多次（抖动、丢滚动位置、打断正在复制的 <pre>）。
+async function loadResultsBundle() {
+  if (!state.demoMode) {
+    const [requests, testRuns, taskEvents] = await Promise.all([
+      api("/api/requests/recent"),
+      api("/api/test-runs/recent"),
+      api("/api/tasks/recent"),
+    ]);
+    state.requests = requests;
+    state.testRuns = testRuns;
+    state.taskEvents = taskEvents;
+  }
+  renderResultsViews();
+}
+
+function renderResultsViews() {
+  renderRequests();
+  renderTestRuns();
+  renderTaskEvents();
+  renderProfiles();
+  renderDashboard();
   renderDeliveryViews();
 }
 

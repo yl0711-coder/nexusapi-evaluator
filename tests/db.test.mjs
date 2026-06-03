@@ -132,6 +132,36 @@ test("recordTestRun stores summary with CI columns", async () => {
   }
 });
 
+test("recordTestRun slims heavy nested fields out of raw_json", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "nexusapi-db-"));
+  const path = join(dir, "slim.db");
+  try {
+    await recordTestRun(
+      {
+        runId: "run-heavy",
+        profileId: "p1",
+        profileName: "甲",
+        successRate: 1,
+        reportMarkdown: "# huge\n".repeat(1000),
+        records: Array.from({ length: 50 }, (_, i) => ({ requestId: `r${i}`, responseText: "x".repeat(500) })),
+        results: [{ a: 1 }, { a: 2 }],
+      },
+      { type: "scenario", path },
+    );
+    const recent = await queryRecentTestRuns(5, { path });
+    const stored = recent.find((r) => r.runId === "run-heavy");
+    assert.ok(stored, "应能读回该运行");
+    assert.equal(stored.reportMarkdown, undefined, "reportMarkdown 应被剥离");
+    assert.equal(stored.records, undefined, "records 应被剥离");
+    assert.equal(stored.recordCount, 50, "保留计数");
+    assert.equal(stored.resultCount, 2);
+    assert.equal(stored.successRate, 1, "汇总字段保留");
+  } finally {
+    closeDatabase(path);
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("importRequestsFromJsonl backfills history from JSONL lines", async () => {
   const dir = await mkdtemp(join(tmpdir(), "nexusapi-db-"));
   const path = join(dir, "import.db");
