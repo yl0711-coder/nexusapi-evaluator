@@ -1,9 +1,39 @@
+import { formatNumber } from "./client-utils.js";
+
 export function recommendationClass(level) {
   return {
     pass: "ok",
     watch: "warn",
     fail: "fail",
   }[level] || "muted";
+}
+
+// 预测 vs 实际消耗（跑前预估 token/请求 vs 跑后真实 token/成本，含裁判审计）。
+export function formatConsumptionLines(result) {
+  const lines = [];
+  const p = result?.predictedConsumption;
+  if (p && (Number.isFinite(Number(p.requests)) || Number.isFinite(Number(p.highTokens)))) {
+    const bits = [];
+    if (Number.isFinite(Number(p.requests))) bits.push(`${p.requests} 次请求`);
+    if (Number.isFinite(Number(p.lowTokens)) && Number.isFinite(Number(p.highTokens))) {
+      bits.push(`预计 ${formatNumber(p.lowTokens)}–${formatNumber(p.highTokens)} tokens`);
+    }
+    lines.push(`预测消耗：${bits.join(" · ")}`);
+  }
+  const actualCost = result?.actualConsumption?.totalCost ?? result?.estimatedCost ?? null;
+  const judge = result?.actualConsumption?.judge || null;
+  const bits = [];
+  const inTok = Number(result?.inputTokens);
+  const outTok = Number(result?.outputTokens);
+  if (Number.isFinite(inTok) || Number.isFinite(outTok)) {
+    bits.push(`输入 ${formatNumber(inTok || 0)} / 输出 ${formatNumber(outTok || 0)} tokens`);
+  }
+  if (typeof actualCost === "number" && Number.isFinite(actualCost)) {
+    bits.push(`成本 $${formatCost(actualCost)}`);
+    if (judge && typeof judge.cost === "number") bits.push(`含裁判 ${judge.calls} 次 / $${formatCost(judge.cost)}`);
+  }
+  if (bits.length) lines.push(`实际消耗：${bits.join(" · ")}`);
+  return lines;
 }
 
 export function formatTaskType(type) {
@@ -88,6 +118,7 @@ export function formatStabilityResult(result) {
     `慢请求参考：${result.p95TotalMs ?? "-"} ms`,
     `结论：${result.recommendation?.title || "-"}`,
     `说明：${result.recommendation?.detail || "-"}`,
+    ...formatConsumptionLines(result),
     `Markdown 报告：${result.reportPath || "-"}`,
     `HTML 报告：${result.reportHtmlPath || "-"}`,
     `JSON 原始结果：${result.rawJsonPath || "-"}`,
@@ -102,6 +133,7 @@ export function formatScenarioResult(result) {
     `测试场景：${result.scenarioCount}`,
     `每个场景重复次数：${result.repeats}`,
     `总耗时：${result.durationMs} ms`,
+    ...formatConsumptionLines(result),
     `报告文件：${result.reportPath || "-"}`,
     `JSON 原始结果：${result.rawJsonPath || "-"}`,
   ];

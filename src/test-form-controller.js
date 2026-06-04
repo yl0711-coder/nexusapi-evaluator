@@ -11,6 +11,7 @@ export function createTaskFormController({
   taskType,
   confirmRun,
   preparePayload,
+  predict,
   beforeStart,
   onSuccess,
   failurePrefix,
@@ -25,6 +26,14 @@ export function createTaskFormController({
     const payload = preparePayload(Object.fromEntries(new FormData(form).entries()));
     if (!payload) {
       return;
+    }
+    // 跑前预测随 payload 一起送后端记录，供报告"预测 vs 实际"对比。
+    if (typeof predict === "function") {
+      try {
+        payload.predicted = predict(payload);
+      } catch {
+        payload.predicted = null;
+      }
     }
     running = true;
     submitButton.disabled = true;

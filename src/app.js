@@ -366,7 +366,9 @@ admissionTestForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const payload = Object.fromEntries(new FormData(admissionTestForm).entries());
   payload.modelName = findProfileModelName(payload.profileId);
-  const confirmed = await confirmAction(confirmExecution("模型准入评测", estimateAdmissionCost(payload)));
+  const estimate = estimateAdmissionCost(payload);
+  payload.predicted = estimate; // 跑前预测随 payload 记录，供报告对比
+  const confirmed = await confirmAction(confirmExecution("模型准入评测", estimate));
   if (!confirmed) {
     return;
   }
@@ -400,6 +402,7 @@ createTaskFormController({
   slot: "admissionBatch",
   taskType: "batch-admission",
   confirmRun: (payload) => confirmAction(confirmExecution("批量准入对比", estimateAdmissionBatchCost(payload))),
+  predict: (payload) => estimateAdmissionBatchCost(payload),
   preparePayload: (payload) => {
     const profileIds = requireSelectedValues(admissionBatchProfileSelect, "请至少选择一个被测 API。");
     return profileIds ? { ...payload, profileIds } : null;
@@ -426,6 +429,7 @@ createTaskFormController({
   slot: "stability",
   taskType: "stability",
   confirmRun: (payload) => confirmAction(confirmExecution("稳定性测试", estimateStabilityCost(payload))),
+  predict: (payload) => estimateStabilityCost(payload),
   preparePayload: (payload) => payload,
   beforeStart: (payload) => {
     stabilitySummary.innerHTML = `<p class="muted">正在进行 ${payload.rounds} 轮测试。请不要关闭窗口。</p>`;
@@ -453,6 +457,7 @@ createTaskFormController({
   slot: "batch",
   taskType: "batch-stability",
   confirmRun: (payload) => confirmAction(confirmExecution("批量并发测试", estimateBatchCost(payload))),
+  predict: (payload) => estimateBatchCost(payload),
   preparePayload: (payload) => {
     const profileIds = requireSelectedValues(batchProfileSelect, "请至少选择一个被测 API。");
     return profileIds ? { ...payload, profileIds } : null;
@@ -479,6 +484,7 @@ createTaskFormController({
   slot: "scenario",
   taskType: "scenario",
   confirmRun: (payload) => confirmAction(confirmExecution("复杂场景测试", estimateScenarioCost(payload, state.scenarios))),
+  predict: (payload) => estimateScenarioCost(payload, state.scenarios),
   preparePayload: (payload) => {
     const profileIds = requireSelectedValues(scenarioProfileSelect, "请至少选择一个被测 API。");
     if (!profileIds) return null;

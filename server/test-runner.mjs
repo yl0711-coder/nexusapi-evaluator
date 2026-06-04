@@ -89,6 +89,18 @@ export async function runQuickTest(profileId, prompt) {
   });
 }
 
+// 归一化前端跑前预估（token 区间 + 请求数），记进 run 供"预测 vs 实际"对比。
+// 前端无单价，故预测只有 token/请求；实际侧(actualConsumption/economics)才有成本。
+function normalizePredicted(predicted) {
+  if (!predicted || typeof predicted !== "object") return null;
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+  const requests = num(predicted.requests);
+  const lowTokens = num(predicted.lowTokens);
+  const highTokens = num(predicted.highTokens);
+  if (requests === null && lowTokens === null && highTokens === null) return null;
+  return { requests, lowTokens, highTokens, source: "pre-run-estimate" };
+}
+
 export async function runAdmissionTest(body, taskContext = {}) {
   const profiles = await loadProfiles();
   const profile = profiles.find((item) => item.id === body.profileId);
@@ -125,6 +137,7 @@ export async function runAdmissionTest(body, taskContext = {}) {
     endedAt,
   });
   summary = await attachRunArtifacts(runId, summary, { records });
+  summary.predictedConsumption = normalizePredicted(body.predicted);
   const reportMarkdown = formatAdmissionReport(summary, records);
   const reportFiles = await saveReportFiles(runId, reportMarkdown, "NexusAPI 模型准入评测报告");
 
@@ -180,6 +193,7 @@ export async function runBatchAdmissionTest(body, taskContext = {}) {
             ...body,
             profileId,
             packageLevel,
+            predicted: null, // 预测记在批量总结里，不重复挂到每个子渠道
           },
           taskContext,
         ),
@@ -215,6 +229,7 @@ export async function runBatchAdmissionTest(body, taskContext = {}) {
     results,
   };
   summary = await attachRunArtifacts(batchId, summary, { results });
+  summary.predictedConsumption = normalizePredicted(body.predicted);
   const reportMarkdown = formatBatchAdmissionReport(summary);
   const reportFiles = await saveReportFiles(batchId, reportMarkdown, "NexusAPI 批量准入评测报告");
 
@@ -697,6 +712,7 @@ async function runStabilityForProfile({ profile, body, taskContext = {}, onProgr
     endedAt,
   });
   summary = await attachRunArtifacts(runId, summary, { records });
+  summary.predictedConsumption = normalizePredicted(body.predicted);
   const aiAnalysis = await maybeBuildAiAnalysis({
     enabled: body.useAiReportAnalysis,
     reportType: "stability",
@@ -757,6 +773,7 @@ export async function runBatchStabilityTest(body, taskContext = {}) {
             ...body,
             profileId,
             useAiReportAnalysis: false,
+            predicted: null, // 预测记在批量总结里，不重复挂到每个子渠道
           },
           taskContext,
         });
@@ -793,6 +810,7 @@ export async function runBatchStabilityTest(body, taskContext = {}) {
     results,
   };
   summary = await attachRunArtifacts(batchId, summary, { results });
+  summary.predictedConsumption = normalizePredicted(body.predicted);
   const aiAnalysisProfile = selectBatchAnalysisProfile(profiles, summary, validProfileIds);
   const aiAnalysis = await maybeBuildAiAnalysis({
     enabled: body.useAiReportAnalysis,
@@ -885,6 +903,7 @@ export async function runScenarioTest(body, taskContext = {}) {
     endedAt,
   });
   summary = await attachRunArtifacts(runId, summary, { profileResults });
+  summary.predictedConsumption = normalizePredicted(body.predicted);
   const aiAnalysisProfile = selectScenarioAnalysisProfile(profiles, summary, profileIds);
   const aiAnalysis = await maybeBuildAiAnalysis({
     enabled: body.useAiReportAnalysis,
