@@ -15,13 +15,24 @@ const SECURITY_HEADERS = {
   "referrer-policy": "no-referrer",
 };
 
+// 部署适配：本地始终允许；额外的部署域名通过 env 配置（逗号分隔主机名）
+const ALLOWED_HOSTS = [
+  "127.0.0.1",
+  "localhost",
+  "[::1]",
+  ...String(process.env.NEXUSAPI_ALLOWED_HOSTS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+];
+
 export function isAllowedBrowserOrigin(origin) {
   if (!origin) {
     return true;
   }
   try {
     const url = new URL(origin);
-    return ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
+    return ALLOWED_HOSTS.includes(url.hostname);
   } catch {
     return false;
   }

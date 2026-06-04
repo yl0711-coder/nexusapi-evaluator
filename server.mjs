@@ -45,6 +45,8 @@ import { appendJsonLine, compactDate, hasProxyEnv, requiredString, safeJson, sen
 import { saveRunArtifacts } from "./server/workspace-store.mjs";
 
 const PORT = Number(process.env.API_PORT || process.env.PORT || 5180);
+// 部署适配：绑定地址可配（容器内需 0.0.0.0；默认仍 127.0.0.1，本地行为不变）
+const HOST = process.env.HOST || process.env.API_HOST || "127.0.0.1";
 const taskManager = createTaskManager({
   taskEventsFile: TASK_EVENTS_FILE,
   runStabilityTest,
@@ -98,8 +100,8 @@ createServer(async (req, res) => {
       errorId,
     });
   }
-}).listen(PORT, "127.0.0.1", () => {
-  console.log(`NexusAPI Evaluator MVP: http://127.0.0.1:${PORT}`);
+}).listen(PORT, HOST, () => {
+  console.log(`NexusAPI Evaluator MVP: http://${HOST}:${PORT}`);
 });
 
 async function handleApi(req, res) {

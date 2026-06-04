@@ -1,0 +1,14 @@
+# 构建产物与依赖（镜像内会重建）
+node_modules
+dist
+
+# 运行时数据与密钥——绝不打进镜像（含 .vault 主密钥、SQLite、报告）
+NexusAPI数据
+app-data
+
+# 桌面壳/构建缓存/版本库
+src-tauri/target
+.git
+.github
+design-preview
+*.log
